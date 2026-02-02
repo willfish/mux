@@ -2,13 +2,65 @@
 
 A fast, dependency-free tmuxinator replacement written in C.
 
+![mux demo](demo.gif)
+
 ## Why
 
 tmuxinator requires Ruby. mux is a single binary with no runtime dependencies beyond tmux itself.
 
 ## Install
 
-### Nix (recommended)
+### Nix flake (recommended)
+
+Add mux as a flake input and include it in your packages via an overlay:
+
+```nix
+# flake.nix
+{
+  inputs = {
+    nixpkgs.url = "nixpkgs/nixos-unstable";
+    home-manager = {
+      url = "github:nix-community/home-manager";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+    mux = {
+      url = "github:willfish/mux";
+      inputs.nixpkgs.follows = "nixpkgs";
+    };
+  };
+
+  outputs = { nixpkgs, home-manager, mux, ... }:
+    let
+      system = "x86_64-linux";
+      overlay = final: prev: {
+        mux = mux.packages.${system}.default;
+      };
+      pkgs = import nixpkgs {
+        inherit system;
+        overlays = [ overlay ];
+      };
+    in {
+      homeConfigurations.yourname = home-manager.lib.homeManagerConfiguration {
+        inherit pkgs;
+        modules = [ ./home ];
+      };
+    };
+}
+```
+
+Then add `mux` to your Home Manager packages:
+
+```nix
+# home/packages.nix
+{ pkgs, ... }:
+{
+  home.packages = with pkgs; [
+    mux
+  ];
+}
+```
+
+### nix profile
 
 ```sh
 nix profile install github:willfish/mux
