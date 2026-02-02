@@ -199,14 +199,12 @@ char *script_generate_start(const Project *p) {
     }
 
     /* End of "session doesn't exist" block */
-    str_append(&s, "\nelse\n\n");
-
-    /* on_project_restart hook */
     if (p->on_project_restart && p->on_project_restart[0]) {
+        str_append(&s, "\nelse\n\n");
         str_appendf(&s, "%s\n\n", p->on_project_restart);
     }
 
-    str_append(&s, "fi\n\n");
+    str_append(&s, "\nfi\n\n");
 
     /* Attach or switch */
     if (p->attach) {
