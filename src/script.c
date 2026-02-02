@@ -23,11 +23,6 @@ static void append_tmux_base(Str *s, const Project *p) {
     }
 }
 
-static void append_tmux(Str *s, const Project *p, const char *subcmd) {
-    append_tmux_base(s, p);
-    str_appendf(s, " %s", subcmd);
-}
-
 static void append_send_keys_raw(Str *s, const Project *p, const char *target, const char *cmd) {
     /* Escape double quotes in the command for embedding in bash */
     Str escaped = str_new();
@@ -60,6 +55,17 @@ char *script_generate_start(const Project *p) {
 
     str_append(&s, "#!/usr/bin/env bash\n\n");
 
+    /* Query tmux base indices */
+    append_tmux_base(&s, p);
+    str_append(&s, " start-server\n\n");
+    str_append(&s, "# Get tmux base indices\n");
+    str_append(&s, "pane_base_index=$(");
+    append_tmux_base(&s, p);
+    str_append(&s, " show-option -gv pane-base-index 2>/dev/null || echo 0)\n");
+    str_append(&s, "base_index=$(");
+    append_tmux_base(&s, p);
+    str_append(&s, " show-option -gv base-index 2>/dev/null || echo 0)\n\n");
+
     /* on_project_start hook */
     if (p->on_project_start && p->on_project_start[0]) {
         str_appendf(&s, "%s\n", p->on_project_start);
@@ -75,9 +81,6 @@ char *script_generate_start(const Project *p) {
     if (p->on_project_first_start && p->on_project_first_start[0]) {
         str_appendf(&s, "%s\n\n", p->on_project_first_start);
     }
-
-    /* Start server */
-    append_tmux(&s, p, "start-server\n");
 
     /* Create new session with first window */
     str_append(&s, "\n# Create new session\n");
@@ -126,9 +129,9 @@ char *script_generate_start(const Project *p) {
                 str_append(&s, "\n");
             }
 
-            /* Build target: window.pane */
+            /* Build target: window.pane (offset by pane-base-index) */
             char target[256];
-            snprintf(target, sizeof(target), "%s.%d", w->name, pi);
+            snprintf(target, sizeof(target), "%s.$((pane_base_index+%d))", w->name, pi);
 
             /* Pane title */
             if (p->enable_pane_titles && w->panes[pi].title) {
@@ -195,7 +198,8 @@ char *script_generate_start(const Project *p) {
         const char *sw =
             (p->startup_window && p->startup_window[0]) ? p->startup_window : first_win_name;
         append_tmux_base(&s, p);
-        str_appendf(&s, " select-pane -t %s:%s.%d\n", p->name, sw, p->startup_pane);
+        str_appendf(&s, " select-pane -t %s:%s.$((pane_base_index+%d))\n", p->name, sw,
+                     p->startup_pane);
     }
 
     /* End of "session doesn't exist" block */
