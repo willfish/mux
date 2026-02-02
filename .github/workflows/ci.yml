@@ -1,0 +1,43 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-and-test:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build pkg-config libyaml-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install meson ninja pkg-config libyaml
+
+      - name: Setup build
+        run: meson setup builddir
+
+      - name: Compile
+        run: meson compile -C builddir
+
+      - name: Unit tests
+        run: meson test -C builddir --print-errorlogs
+
+      - name: Smoke test
+        run: |
+          ./builddir/mux version
+          ./builddir/mux help
+          ./builddir/mux doctor
