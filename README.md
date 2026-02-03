@@ -8,6 +8,15 @@ A fast, dependency-free tmuxinator replacement written in C.
 
 tmuxinator requires Ruby. mux is a single binary with no runtime dependencies beyond tmux itself.
 
+### Size comparison
+
+| Tool | Install size |
+|------|-------------|
+| **mux** | 64 KB |
+| tmuxinator | 85 MB |
+
+That's **~1300x smaller**. The tmuxinator closure includes Ruby, RubyGems, and all gem dependencies. mux just needs libyaml and libc.
+
 ## Install
 
 ### Nix flake (recommended)
@@ -91,6 +100,7 @@ meson test -C builddir
 mux start <project>       Start a tmux session
 mux stop <project>        Stop a tmux session
 mux new <project>         Create a new project config
+mux edit <project>        Edit a project config in $EDITOR
 mux copy <src> <dst>      Copy a project config
 mux delete <project>      Delete a project config
 mux list                  List available projects
@@ -104,8 +114,11 @@ mux completions <shell>   Print shell completion script (bash/zsh/fish)
 
 ```
 mux <project>             Same as mux start <project>
-mux s <project>           Short alias for start
-mux ls                    Short alias for list
+mux s                     start
+mux e, open, o            edit
+mux cp                    copy
+mux rm                    delete
+mux ls, l                 list
 ```
 
 ### Flags
