@@ -8,14 +8,18 @@ static Command parse_command(const char *cmd) {
     if (strcmp(cmd, "start") == 0 || strcmp(cmd, "s") == 0) return CMD_START;
     if (strcmp(cmd, "stop") == 0) return CMD_STOP;
     if (strcmp(cmd, "new") == 0 || strcmp(cmd, "n") == 0) return CMD_NEW;
-    if (strcmp(cmd, "copy") == 0 || strcmp(cmd, "c") == 0) return CMD_COPY;
-    if (strcmp(cmd, "delete") == 0 || strcmp(cmd, "d") == 0) return CMD_DELETE;
+    if (strcmp(cmd, "edit") == 0 || strcmp(cmd, "e") == 0 ||
+        strcmp(cmd, "open") == 0 || strcmp(cmd, "o") == 0) return CMD_EDIT;
+    if (strcmp(cmd, "copy") == 0 || strcmp(cmd, "c") == 0 ||
+        strcmp(cmd, "cp") == 0) return CMD_COPY;
+    if (strcmp(cmd, "delete") == 0 || strcmp(cmd, "d") == 0 ||
+        strcmp(cmd, "rm") == 0) return CMD_DELETE;
     if (strcmp(cmd, "list") == 0 || strcmp(cmd, "l") == 0 || strcmp(cmd, "ls") == 0)
         return CMD_LIST;
     if (strcmp(cmd, "debug") == 0) return CMD_DEBUG;
     if (strcmp(cmd, "local") == 0) return CMD_LOCAL;
     if (strcmp(cmd, "doctor") == 0) return CMD_DOCTOR;
-    if (strcmp(cmd, "implode") == 0) return CMD_IMPLODE;
+    if (strcmp(cmd, "implode") == 0 || strcmp(cmd, "i") == 0) return CMD_IMPLODE;
     if (strcmp(cmd, "stop-all") == 0) return CMD_STOP_ALL;
     if (strcmp(cmd, "version") == 0 || strcmp(cmd, "v") == 0) return CMD_VERSION;
     if (strcmp(cmd, "help") == 0 || strcmp(cmd, "h") == 0) return CMD_HELP;
@@ -122,13 +126,14 @@ void cli_usage(void) {
     printf("  start, s <project>       Start a tmux session\n");
     printf("  stop <project>           Stop a tmux session\n");
     printf("  new, n [project]         Create a new project config\n");
-    printf("  copy, c <src> <dst>      Copy a project config\n");
-    printf("  delete, d <project...>   Delete project configs\n");
+    printf("  edit, e, open, o <proj>  Edit a project config\n");
+    printf("  copy, cp, c <src> <dst>  Copy a project config\n");
+    printf("  delete, rm, d <project>  Delete project configs\n");
     printf("  list, ls, l              List available projects\n");
     printf("  debug <project>          Print generated tmux script\n");
     printf("  local                    Start from ./.tmuxinator.yml\n");
     printf("  doctor                   Check dependencies\n");
-    printf("  implode                  Delete all configs\n");
+    printf("  implode, i               Delete all configs\n");
     printf("  stop-all                 Stop all tmux sessions\n");
     printf("  completions <shell>      Print shell completion script\n");
     printf("  version, v               Print version\n");

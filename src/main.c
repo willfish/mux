@@ -176,6 +176,29 @@ static int cmd_new(Arena *a, const CliArgs *args) {
     return 0;
 }
 
+static int cmd_edit(Arena *a, const CliArgs *args) {
+    const char *name = args->project_name;
+    if (!name) {
+        fprintf(stderr, "mux: please specify a project name\n");
+        return 1;
+    }
+
+    char *filepath = path_find_project(a, name);
+    if (!filepath) {
+        fprintf(stderr, "mux: project '%s' not found\n", name);
+        return 1;
+    }
+
+    const char *editor = getenv("EDITOR");
+    if (!editor || !editor[0]) {
+        editor = "vi";
+    }
+
+    char cmd[4096];
+    snprintf(cmd, sizeof(cmd), "%s '%s'", editor, filepath);
+    return shell_exec(cmd);
+}
+
 static int cmd_copy(Arena *a, const CliArgs *args) {
     if (!args->project_name || !args->copy_target) {
         fprintf(stderr, "mux: usage: mux copy <existing> <new>\n");
@@ -397,6 +420,9 @@ int main(int argc, char **argv) {
         break;
     case CMD_NEW:
         ret = cmd_new(&a, &args);
+        break;
+    case CMD_EDIT:
+        ret = cmd_edit(&a, &args);
         break;
     case CMD_COPY:
         ret = cmd_copy(&a, &args);

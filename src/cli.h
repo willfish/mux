@@ -10,6 +10,7 @@ typedef enum {
     CMD_START,
     CMD_STOP,
     CMD_NEW,
+    CMD_EDIT,
     CMD_COPY,
     CMD_DELETE,
     CMD_LIST,
