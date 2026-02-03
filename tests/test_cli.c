@@ -98,6 +98,34 @@ TEST test_cli_new(void) {
     PASS();
 }
 
+TEST test_cli_edit(void) {
+    char *argv[] = {"mux", "edit", "work"};
+    CliArgs args;
+    cli_parse(3, argv, &args);
+    ASSERT_EQ(CMD_EDIT, args.command);
+    ASSERT_STR_EQ("work", args.project_name);
+    PASS();
+}
+
+TEST test_cli_edit_aliases(void) {
+    char *argv1[] = {"mux", "e", "work"};
+    CliArgs args;
+    cli_parse(3, argv1, &args);
+    ASSERT_EQ(CMD_EDIT, args.command);
+    ASSERT_STR_EQ("work", args.project_name);
+
+    char *argv2[] = {"mux", "open", "work"};
+    cli_parse(3, argv2, &args);
+    ASSERT_EQ(CMD_EDIT, args.command);
+    ASSERT_STR_EQ("work", args.project_name);
+
+    char *argv3[] = {"mux", "o", "work"};
+    cli_parse(3, argv3, &args);
+    ASSERT_EQ(CMD_EDIT, args.command);
+    ASSERT_STR_EQ("work", args.project_name);
+    PASS();
+}
+
 TEST test_cli_copy(void) {
     char *argv[] = {"mux", "copy", "src", "dst"};
     CliArgs args;
@@ -105,6 +133,33 @@ TEST test_cli_copy(void) {
     ASSERT_EQ(CMD_COPY, args.command);
     ASSERT_STR_EQ("src", args.project_name);
     ASSERT_STR_EQ("dst", args.copy_target);
+    PASS();
+}
+
+TEST test_cli_copy_cp_alias(void) {
+    char *argv[] = {"mux", "cp", "src", "dst"};
+    CliArgs args;
+    cli_parse(4, argv, &args);
+    ASSERT_EQ(CMD_COPY, args.command);
+    ASSERT_STR_EQ("src", args.project_name);
+    ASSERT_STR_EQ("dst", args.copy_target);
+    PASS();
+}
+
+TEST test_cli_delete_rm_alias(void) {
+    char *argv[] = {"mux", "rm", "work"};
+    CliArgs args;
+    cli_parse(3, argv, &args);
+    ASSERT_EQ(CMD_DELETE, args.command);
+    ASSERT_STR_EQ("work", args.project_name);
+    PASS();
+}
+
+TEST test_cli_implode_alias(void) {
+    char *argv[] = {"mux", "i"};
+    CliArgs args;
+    cli_parse(2, argv, &args);
+    ASSERT_EQ(CMD_IMPLODE, args.command);
     PASS();
 }
 
@@ -187,7 +242,12 @@ SUITE(cli_suite) {
     RUN_TEST(test_cli_stop);
     RUN_TEST(test_cli_debug);
     RUN_TEST(test_cli_new);
+    RUN_TEST(test_cli_edit);
+    RUN_TEST(test_cli_edit_aliases);
     RUN_TEST(test_cli_copy);
+    RUN_TEST(test_cli_copy_cp_alias);
+    RUN_TEST(test_cli_delete_rm_alias);
+    RUN_TEST(test_cli_implode_alias);
     RUN_TEST(test_cli_list);
     RUN_TEST(test_cli_list_aliases);
     RUN_TEST(test_cli_doctor);

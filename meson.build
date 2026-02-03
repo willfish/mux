@@ -61,5 +61,6 @@ foreach t : test_names
     executable(t, 'tests' / t + '.c',
       link_with: mux_lib,
       dependencies: [libyaml],
-      include_directories: include_directories('src')))
+      include_directories: include_directories('src')),
+    workdir: meson.project_source_root())
 endforeach
