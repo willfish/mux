@@ -12,42 +12,38 @@ GIF_FILE="demo.gif"
 echo "=== mux Demo Recorder ==="
 echo ""
 echo "This will record mux starting a tmux session with 3 panes:"
-echo "  - vim editing a file"
 echo "  - btop/htop system monitor"
+echo "  - vim editing a file"
 echo "  - live log viewer"
 echo ""
 echo "Steps:"
-echo "  1. Press Enter to start"
-echo "  2. A portal dialog will ask which screen/window to share"
-echo "  3. Select your terminal window"
-echo "  4. Demo runs automatically (~8 seconds)"
+echo "  1. Press Enter - screen will clear"
+echo "  2. Portal dialog appears - select your terminal window"
+echo "  3. Press Enter again to start the demo"
 echo ""
-read -p "Press Enter to start..."
+read -p "Press Enter to continue..."
 
 # Cleanup any existing session and old video
 tmux kill-session -t demo 2>/dev/null || true
 rm -f "$VIDEO_FILE"
 
-# Clear screen before recording
+# Clear screen BEFORE starting recorder
 clear
 
-echo "Starting screen recording (select your terminal in the portal dialog)..."
-
 # Start recording with portal (works on any Wayland compositor)
+# The portal dialog will appear over the cleared screen
 gpu-screen-recorder -w portal -f 24 -o "$VIDEO_FILE" >/dev/null 2>&1 &
 RECORDER_PID=$!
 
 # Wait for user to complete portal dialog
-echo ""
-read -p "Complete the screen share dialog, then press Enter to start the demo..."
+# Don't print anything - the recorder is already capturing
+read -s -p ""
 
 # Check if recorder is running
 if ! kill -0 $RECORDER_PID 2>/dev/null; then
     echo "gpu-screen-recorder failed to start or was cancelled"
     exit 1
 fi
-
-clear
 
 # Type effect
 type_cmd() {
@@ -78,9 +74,7 @@ type_cmd "mux start -p demo/demo.yml"
 
 sleep 0.5
 
-# Stop recording
-echo ""
-echo "Stopping recording..."
+# Stop recording (don't print - it gets recorded)
 kill -INT $RECORDER_PID 2>/dev/null
 sleep 2
 wait $RECORDER_PID 2>/dev/null || true
