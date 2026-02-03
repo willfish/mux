@@ -27,7 +27,9 @@ curl -fsSL https://raw.githubusercontent.com/willfish/mux/master/install.sh | sh
 
 This downloads a pre-built binary for your platform. Supports:
 - Linux x86_64 / aarch64
-- macOS x86_64 (Intel) / aarch64 (Apple Silicon)
+- macOS aarch64 (Apple Silicon)
+
+Intel Mac users: build from source (see below).
 
 ### Nix flake
 

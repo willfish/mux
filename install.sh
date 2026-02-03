@@ -26,6 +26,18 @@ esac
 TARGET="${OS}-${ARCH}"
 echo "Detected platform: $TARGET"
 
+# Check for unsupported platform
+if [ "$TARGET" = "darwin-x86_64" ]; then
+    echo ""
+    echo "Pre-built binaries are not available for Intel Mac."
+    echo "Please build from source:"
+    echo "  brew install meson ninja libyaml"
+    echo "  git clone https://github.com/willfish/mux && cd mux"
+    echo "  meson setup build && meson compile -C build"
+    echo "  sudo cp build/mux /usr/local/bin/"
+    exit 1
+fi
+
 # Get latest release tag
 echo "Fetching latest release..."
 LATEST=$(curl -fsSL "https://api.github.com/repos/${REPO}/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
