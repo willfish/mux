@@ -19,7 +19,17 @@ That's **~1300x smaller**. The tmuxinator closure includes Ruby, RubyGems, and a
 
 ## Install
 
-### Nix flake (recommended)
+### Quick install (Linux/macOS)
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/willfish/mux/master/install.sh | sh
+```
+
+This downloads a pre-built binary for your platform. Supports:
+- Linux x86_64 / aarch64
+- macOS x86_64 (Intel) / aarch64 (Apple Silicon)
+
+### Nix flake
 
 Add mux as a flake input and include it in your packages via an overlay:
 

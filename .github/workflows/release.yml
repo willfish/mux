@@ -1,0 +1,87 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            arch: x86_64
+            target: linux-x86_64
+          - os: ubuntu-24.04-arm
+            arch: aarch64
+            target: linux-aarch64
+          - os: macos-13
+            arch: x86_64
+            target: darwin-x86_64
+          - os: macos-14
+            arch: aarch64
+            target: darwin-aarch64
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install dependencies (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y meson ninja-build libyaml-dev
+
+      - name: Install dependencies (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          brew install meson ninja libyaml
+
+      - name: Build
+        run: |
+          meson setup build --buildtype=release --prefer-static
+          meson compile -C build
+
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp build/mux dist/mux
+          strip dist/mux
+          tar -czvf mux-${{ matrix.target }}.tar.gz -C dist mux
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: mux-${{ matrix.target }}
+          path: mux-${{ matrix.target }}.tar.gz
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create checksums
+        run: |
+          cd artifacts
+          find . -name '*.tar.gz' -exec mv {} . \;
+          sha256sum *.tar.gz > checksums.txt
+          cat checksums.txt
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/*.tar.gz
+            artifacts/checksums.txt
+          generate_release_notes: true
