@@ -64,7 +64,7 @@ int shell_exec_bash(const char *script) {
         return -1;
     }
     if (pid == 0) {
-        execl("/bin/bash", "bash", "-c", script, (char *)NULL);
+        execlp("bash", "bash", "-c", script, (char *)NULL);
         perror("mux: exec");
         _exit(127);
     }

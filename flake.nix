@@ -15,6 +15,19 @@
           src = ./.;
           nativeBuildInputs = with pkgs; [ meson ninja pkg-config ];
           buildInputs = with pkgs; [ libyaml ];
+
+
+          doInstallCheck = true;
+          installCheckPhase = ''
+            runHook preInstallCheck
+
+            if strings "$out/bin/mux" | grep -Fxq '/bin/bash'; then
+              echo "hardcoded /bin/bash found in installed mux binary" >&2
+              exit 1
+            fi
+
+            runHook postInstallCheck
+          '';
         };
 
         devShells.default = pkgs.mkShell {

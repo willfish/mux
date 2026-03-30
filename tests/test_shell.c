@@ -2,6 +2,22 @@
 #include "arena.h"
 #include "shell.h"
 
+#include <stdio.h>
+#include <string.h>
+
+TEST test_shell_source_does_not_hardcode_bin_bash(void) {
+    FILE *f = fopen("src/shell.c", "r");
+    ASSERT(f != NULL);
+
+    char buf[4096];
+    size_t n = fread(buf, 1, sizeof(buf) - 1, f);
+    fclose(f);
+    buf[n] = '\0';
+
+    ASSERT(strstr(buf, "/bin/bash") == NULL);
+    PASS();
+}
+
 TEST test_shell_escape_simple(void) {
     Arena a = arena_new();
     char *r = shell_escape(&a, "hello");
@@ -113,6 +129,7 @@ TEST test_path_expand_null(void) {
 }
 
 SUITE(shell_suite) {
+    RUN_TEST(test_shell_source_does_not_hardcode_bin_bash);
     RUN_TEST(test_shell_escape_simple);
     RUN_TEST(test_shell_escape_spaces);
     RUN_TEST(test_shell_escape_single_quote);
