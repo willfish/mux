@@ -7,6 +7,7 @@
 - parsing configs with template settings
 - generating tmux scripts
 - listing projects from a synthetic directory with 1000 config files
+- filtering 1000 configured projects against 500 active tmux sessions
 
 Run it locally with:
 

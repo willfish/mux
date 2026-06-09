@@ -3,6 +3,8 @@
 #include "path.h"
 #include "project.h"
 #include "script.h"
+#include "str.h"
+#include "tmux.h"
 
 #include <errno.h>
 #include <stdio.h>
@@ -165,11 +167,53 @@ static void benchmark_project_listing(void) {
     cleanup_project_dir(dir, project_count);
 }
 
+static void benchmark_active_session_filter(void) {
+    const int project_count = 1000;
+    const int active_count = 500;
+    const int iterations = 100;
+    Arena setup = arena_new();
+    char **projects = arena_alloc(&setup, sizeof(char *) * (size_t)(project_count + 1));
+    Str session_output = str_new();
+
+    for (int i = 0; i < project_count; i++) {
+        char name[32];
+        snprintf(name, sizeof(name), "project_%04d", i);
+        projects[i] = arena_strdup(&setup, name);
+        if (i < active_count) {
+            str_appendf(&session_output, "%s\n", name);
+        }
+    }
+    projects[project_count] = NULL;
+
+    int session_count = 0;
+    char **sessions = tmux_parse_session_names(&setup, str_cstr(&session_output), &session_count);
+    long long start = now_ns();
+    for (int i = 0; i < iterations; i++) {
+        int matches = 0;
+        for (int j = 0; j < project_count; j++) {
+            if (tmux_session_names_contain(sessions, session_count, projects[j])) {
+                matches++;
+            }
+        }
+        if (matches != active_count) {
+            fprintf(stderr, "benchmark: expected %d active matches, got %d\n", active_count,
+                    matches);
+            exit(1);
+        }
+        bench_sink += (size_t)matches;
+    }
+    print_result("filter active sessions", iterations, now_ns() - start);
+
+    str_free(&session_output);
+    arena_free(&setup);
+}
+
 int main(void) {
     benchmark_parse_config();
     benchmark_template_config();
     benchmark_script_generation();
     benchmark_project_listing();
+    benchmark_active_session_filter();
     printf("benchmark sink: %zu\n", bench_sink);
     return 0;
 }
