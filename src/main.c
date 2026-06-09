@@ -286,8 +286,10 @@ static int cmd_list(Arena *a, const CliArgs *args) {
         char **projects = path_list_projects(a, &count);
         if (!projects) return 0;
 
+        int session_count = 0;
+        char **sessions = tmux_list_sessions(a, &session_count);
         for (int i = 0; i < count; i++) {
-            if (tmux_has_session(a, projects[i])) {
+            if (tmux_session_names_contain(sessions, session_count, projects[i])) {
                 printf("%s\n", projects[i]);
             }
         }
