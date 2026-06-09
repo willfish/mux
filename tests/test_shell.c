@@ -82,6 +82,14 @@ TEST test_shell_escape_unicode(void) {
     PASS();
 }
 
+TEST test_shell_editor_command_escapes_filepath(void) {
+    Arena a = arena_new();
+    char *cmd = shell_editor_command(&a, "vim", "/tmp/team's file.yml");
+    ASSERT_STR_EQ("vim '/tmp/team'\"'\"'s file.yml'", cmd);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_path_expand_tilde(void) {
     Arena a = arena_new();
     const char *home = getenv("HOME");
@@ -138,6 +146,7 @@ SUITE(shell_suite) {
     RUN_TEST(test_shell_escape_semicolon);
     RUN_TEST(test_shell_escape_double_quotes);
     RUN_TEST(test_shell_escape_unicode);
+    RUN_TEST(test_shell_editor_command_escapes_filepath);
     RUN_TEST(test_path_expand_tilde);
     RUN_TEST(test_path_expand_tilde_only);
     RUN_TEST(test_path_expand_no_tilde);

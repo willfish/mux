@@ -169,9 +169,7 @@ static int cmd_new(Arena *a, const CliArgs *args) {
     /* Open in editor */
     const char *editor = getenv("EDITOR");
     if (editor && editor[0]) {
-        char cmd[4096];
-        snprintf(cmd, sizeof(cmd), "%s '%s'", editor, filepath);
-        return shell_exec(cmd);
+        return shell_exec(shell_editor_command(a, editor, filepath));
     }
 
     return 0;
@@ -195,9 +193,7 @@ static int cmd_edit(Arena *a, const CliArgs *args) {
         editor = "vi";
     }
 
-    char cmd[4096];
-    snprintf(cmd, sizeof(cmd), "%s '%s'", editor, filepath);
-    return shell_exec(cmd);
+    return shell_exec(shell_editor_command(a, editor, filepath));
 }
 
 static int cmd_copy(Arena *a, const CliArgs *args) {
