@@ -10,14 +10,22 @@
 
 /* Map deprecated field names to canonical names */
 static const char *config_canonical_key(const char *key) {
-    if (strcmp(key, "project_name") == 0) return "name";
-    if (strcmp(key, "project_root") == 0) return "root";
-    if (strcmp(key, "cli_args") == 0) return "tmux_options";
-    if (strcmp(key, "tabs") == 0) return "windows";
-    if (strcmp(key, "rbenv") == 0) return NULL;  /* ignored */
-    if (strcmp(key, "rvm") == 0) return NULL;    /* ignored */
-    if (strcmp(key, "pre") == 0) return NULL;    /* deprecated, ignored */
-    if (strcmp(key, "post") == 0) return NULL;   /* deprecated, ignored */
+    if (strcmp(key, "project_name") == 0)
+        return "name";
+    if (strcmp(key, "project_root") == 0)
+        return "root";
+    if (strcmp(key, "cli_args") == 0)
+        return "tmux_options";
+    if (strcmp(key, "tabs") == 0)
+        return "windows";
+    if (strcmp(key, "rbenv") == 0)
+        return NULL; /* ignored */
+    if (strcmp(key, "rvm") == 0)
+        return NULL; /* ignored */
+    if (strcmp(key, "pre") == 0)
+        return NULL; /* deprecated, ignored */
+    if (strcmp(key, "post") == 0)
+        return NULL; /* deprecated, ignored */
     return key;
 }
 
@@ -26,7 +34,8 @@ static char *join_yaml_sequence(Arena *a, yaml_document_t *doc, yaml_node_t *nod
     if (node->type == YAML_SCALAR_NODE) {
         return arena_strdup(a, (const char *)node->data.scalar.value);
     }
-    if (node->type != YAML_SEQUENCE_NODE) return NULL;
+    if (node->type != YAML_SEQUENCE_NODE)
+        return NULL;
 
     Str buf = str_new();
     int first = 1;
@@ -34,7 +43,8 @@ static char *join_yaml_sequence(Arena *a, yaml_document_t *doc, yaml_node_t *nod
          item < node->data.sequence.items.top; item++) {
         yaml_node_t *val = yaml_document_get_node(doc, *item);
         if (val && val->type == YAML_SCALAR_NODE) {
-            if (!first) str_append(&buf, "; ");
+            if (!first)
+                str_append(&buf, "; ");
             str_append(&buf, (const char *)val->data.scalar.value);
             first = 0;
         }
@@ -50,7 +60,8 @@ static char **collect_commands(Arena *a, yaml_document_t *doc, yaml_node_t *node
 
     if (node->type == YAML_SCALAR_NODE) {
         const char *val = (const char *)node->data.scalar.value;
-        if (val[0] == '\0') return NULL;
+        if (val[0] == '\0')
+            return NULL;
         char **cmds = arena_alloc(a, sizeof(char *) * 2);
         cmds[0] = arena_strdup(a, val);
         cmds[1] = NULL;
@@ -58,10 +69,12 @@ static char **collect_commands(Arena *a, yaml_document_t *doc, yaml_node_t *node
         return cmds;
     }
 
-    if (node->type != YAML_SEQUENCE_NODE) return NULL;
+    if (node->type != YAML_SEQUENCE_NODE)
+        return NULL;
 
     int n = (int)(node->data.sequence.items.top - node->data.sequence.items.start);
-    if (n == 0) return NULL;
+    if (n == 0)
+        return NULL;
 
     char **cmds = arena_alloc(a, sizeof(char *) * (size_t)(n + 1));
     int idx = 0;
@@ -107,8 +120,10 @@ static int parse_pane(Arena *a, yaml_document_t *doc, yaml_node_t *node, Pane *p
              pair < node->data.mapping.pairs.top; pair++) {
             yaml_node_t *key = yaml_document_get_node(doc, pair->key);
             yaml_node_t *val = yaml_document_get_node(doc, pair->value);
-            if (!key || !val) continue;
-            if (key->type != YAML_SCALAR_NODE) continue;
+            if (!key || !val)
+                continue;
+            if (key->type != YAML_SCALAR_NODE)
+                continue;
 
             pane->title = arena_strdup(a, (const char *)key->data.scalar.value);
             if (val->type == YAML_SCALAR_NODE) {
@@ -133,15 +148,18 @@ static int parse_pane(Arena *a, yaml_document_t *doc, yaml_node_t *node, Pane *p
 static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Window *win) {
     memset(win, 0, sizeof(Window));
 
-    if (node->type != YAML_MAPPING_NODE) return -1;
+    if (node->type != YAML_MAPPING_NODE)
+        return -1;
 
     /* Each window is a mapping with a single key (window name) → mapping or scalar */
     for (yaml_node_pair_t *pair = node->data.mapping.pairs.start;
          pair < node->data.mapping.pairs.top; pair++) {
         yaml_node_t *key = yaml_document_get_node(doc, pair->key);
         yaml_node_t *val = yaml_document_get_node(doc, pair->value);
-        if (!key || !val) continue;
-        if (key->type != YAML_SCALAR_NODE) continue;
+        if (!key || !val)
+            continue;
+        if (key->type != YAML_SCALAR_NODE)
+            continue;
 
         win->name = arena_strdup(a, (const char *)key->data.scalar.value);
 
@@ -169,7 +187,8 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
                  wp < val->data.mapping.pairs.top; wp++) {
                 yaml_node_t *wk = yaml_document_get_node(doc, wp->key);
                 yaml_node_t *wv = yaml_document_get_node(doc, wp->value);
-                if (!wk || !wv || wk->type != YAML_SCALAR_NODE) continue;
+                if (!wk || !wv || wk->type != YAML_SCALAR_NODE)
+                    continue;
 
                 const char *wkey = (const char *)wk->data.scalar.value;
 
@@ -177,6 +196,8 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
                     win->layout = arena_strdup(a, (const char *)wv->data.scalar.value);
                 } else if (strcmp(wkey, "root") == 0 && wv->type == YAML_SCALAR_NODE) {
                     win->root = arena_strdup(a, (const char *)wv->data.scalar.value);
+                } else if (strcmp(wkey, "focused_pane") == 0 && wv->type == YAML_SCALAR_NODE) {
+                    win->focused_pane = arena_strdup(a, (const char *)wv->data.scalar.value);
                 } else if (strcmp(wkey, "pre") == 0) {
                     win->pre = join_yaml_sequence(a, doc, wv);
                 } else if (strcmp(wkey, "synchronize") == 0 && wv->type == YAML_SCALAR_NODE) {
@@ -197,7 +218,8 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
                         for (yaml_node_item_t *item = wv->data.sequence.items.start;
                              item < wv->data.sequence.items.top; item++) {
                             yaml_node_t *pnode = yaml_document_get_node(doc, *item);
-                            if (!pnode) continue;
+                            if (!pnode)
+                                continue;
                             parse_pane(a, doc, pnode, &win->panes[win->pane_count]);
                             win->pane_count++;
                         }
@@ -228,11 +250,13 @@ static int parse_document(Arena *a, yaml_document_t *doc, Project *p) {
          pair < root->data.mapping.pairs.top; pair++) {
         yaml_node_t *key = yaml_document_get_node(doc, pair->key);
         yaml_node_t *val = yaml_document_get_node(doc, pair->value);
-        if (!key || !val || key->type != YAML_SCALAR_NODE) continue;
+        if (!key || !val || key->type != YAML_SCALAR_NODE)
+            continue;
 
         const char *raw_key = (const char *)key->data.scalar.value;
         const char *k = config_canonical_key(raw_key);
-        if (!k) continue; /* ignored/deprecated */
+        if (!k)
+            continue; /* ignored/deprecated */
 
         if (strcmp(k, "name") == 0 && val->type == YAML_SCALAR_NODE) {
             p->name = arena_strdup(a, (const char *)val->data.scalar.value);
@@ -280,7 +304,8 @@ static int parse_document(Arena *a, yaml_document_t *doc, Project *p) {
                 for (yaml_node_item_t *item = val->data.sequence.items.start;
                      item < val->data.sequence.items.top; item++) {
                     yaml_node_t *wnode = yaml_document_get_node(doc, *item);
-                    if (!wnode) continue;
+                    if (!wnode)
+                        continue;
                     if (parse_window(a, doc, wnode, &p->windows[p->window_count]) == 0) {
                         p->window_count++;
                     }

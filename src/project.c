@@ -54,6 +54,8 @@ void project_dump(const Project *p) {
             printf("      layout: %s\n", w->layout);
         if (w->pre)
             printf("      pre: %s\n", w->pre);
+        if (w->focused_pane)
+            printf("      focused_pane: %s\n", w->focused_pane);
         if (w->synchronize)
             printf("      synchronize: %s\n", w->synchronize);
         printf("      panes (%d):\n", w->pane_count);

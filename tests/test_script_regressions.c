@@ -104,6 +104,10 @@ TEST test_script_regression_window_root(void) {
     return assert_script_fixture_matches("window_root");
 }
 
+TEST test_script_regression_focused_pane(void) {
+    return assert_script_fixture_matches("focused_pane");
+}
+
 TEST test_script_regression_sample_deprecations(void) {
     return assert_script_fixture_matches("sample_deprecations");
 }
@@ -113,6 +117,7 @@ SUITE(script_regression_suite) {
     RUN_TEST(test_script_regression_hooks);
     RUN_TEST(test_script_regression_pane_titles);
     RUN_TEST(test_script_regression_window_root);
+    RUN_TEST(test_script_regression_focused_pane);
     RUN_TEST(test_script_regression_sample_deprecations);
 }
 

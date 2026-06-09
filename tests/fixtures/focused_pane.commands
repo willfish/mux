@@ -1,0 +1,29 @@
+tmux start-server
+pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
+tmux has-session -t focused_pane 2>/dev/null
+if [ $? != 0 ]; then
+tmux new-session -d -s focused_pane -n editor -c ~/test
+tmux select-pane -t focused_pane:editor.$((pane_base_index+0)) -T "editor"
+tmux send-keys -t focused_pane:editor.$((pane_base_index+0)) "vim" C-m
+tmux splitw -t focused_pane:editor -c ~/test
+tmux select-pane -t focused_pane:editor.$((pane_base_index+1)) -T "shell"
+tmux send-keys -t focused_pane:editor.$((pane_base_index+1)) "bash" C-m
+tmux splitw -t focused_pane:editor -c ~/test
+tmux select-pane -t focused_pane:editor.$((pane_base_index+2)) -T "logs"
+tmux send-keys -t focused_pane:editor.$((pane_base_index+2)) "tail -f log/development.log" C-m
+tmux select-layout -t focused_pane:editor main-vertical
+tmux select-pane -t focused_pane:editor.$((pane_base_index+1))
+tmux new-window -t focused_pane -n server -c ~/test
+tmux send-keys -t focused_pane:server.$((pane_base_index+0)) "bundle exec rails s" C-m
+tmux splitw -t focused_pane:server -c ~/test
+tmux send-keys -t focused_pane:server.$((pane_base_index+1)) "tail -f log/server.log" C-m
+tmux select-pane -t focused_pane:server.$((pane_base_index+0))
+tmux set-option -g pane-border-status top
+tmux select-window -t focused_pane:editor
+fi
+if [ -z "$TMUX" ]; then
+tmux -u attach-session -t focused_pane
+else
+tmux -u switch-client -t focused_pane
+fi

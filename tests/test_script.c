@@ -269,6 +269,20 @@ TEST test_script_pane_titles(void) {
     PASS();
 }
 
+TEST test_script_focused_pane(void) {
+    Arena a = arena_new();
+    Project p;
+    int ret = config_parse(&a, FIXTURE_PATH "focused_pane.yml", &p, NULL, 0);
+    ASSERT_EQ(0, ret);
+
+    char *script = script_generate_start(&p);
+    ASSERT(strstr(script, "select-pane -t focused_pane:editor.$((pane_base_index+1))") != NULL);
+    ASSERT(strstr(script, "select-pane -t focused_pane:server.$((pane_base_index+0))") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_script_window_root(void) {
     Arena a = arena_new();
     Project p;
@@ -353,6 +367,7 @@ SUITE(script_fixture_suite) {
     RUN_TEST(test_script_synchronize);
     RUN_TEST(test_script_startup_window_and_pane);
     RUN_TEST(test_script_pane_titles);
+    RUN_TEST(test_script_focused_pane);
     RUN_TEST(test_script_window_root);
     RUN_TEST(test_script_hooks_all);
     RUN_TEST(test_script_sample_comprehensive);
