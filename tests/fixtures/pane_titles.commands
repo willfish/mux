@@ -1,0 +1,24 @@
+tmux start-server
+pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
+tmux has-session -t pane_titles 2>/dev/null
+if [ $? != 0 ]; then
+tmux new-session -d -s pane_titles -n editor -c ~/test
+tmux select-pane -t pane_titles:editor.$((pane_base_index+0)) -T "Editor"
+tmux send-keys -t pane_titles:editor.$((pane_base_index+0)) "vim" C-m
+tmux splitw -t pane_titles:editor -c ~/test
+tmux select-pane -t pane_titles:editor.$((pane_base_index+1)) -T "Shell"
+tmux send-keys -t pane_titles:editor.$((pane_base_index+1)) "bash" C-m
+tmux splitw -t pane_titles:editor -c ~/test
+tmux select-pane -t pane_titles:editor.$((pane_base_index+2)) -T "Logs"
+tmux send-keys -t pane_titles:editor.$((pane_base_index+2)) "tail -f /var/log/syslog" C-m
+tmux select-layout -t pane_titles:editor main-vertical
+tmux set-option -g pane-border-status bottom
+tmux set-option -g pane-border-format ' #T '
+tmux select-window -t pane_titles:editor
+fi
+if [ -z "$TMUX" ]; then
+tmux -u attach-session -t pane_titles
+else
+tmux -u switch-client -t pane_titles
+fi

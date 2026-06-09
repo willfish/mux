@@ -40,6 +40,7 @@ test_names = [
   'test_cli',
   'test_template',
   'test_tmux',
+  'test_script_regressions',
 ]
 
 foreach t : test_names
