@@ -1,0 +1,41 @@
+tmux -L foo -f ~/.tmux.mac.conf start-server
+pane_base_index=$(tmux -L foo -f ~/.tmux.mac.conf show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux -L foo -f ~/.tmux.mac.conf show-option -gv base-index 2>/dev/null || echo 0)
+tmux -L foo -f ~/.tmux.mac.conf has-session -t sample 2>/dev/null
+if [ $? != 0 ]; then
+tmux -L foo -f ~/.tmux.mac.conf new-session -d -s sample -n editor -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+0)) "echo \"I get run in each pane, before each pane command!\"; " C-m
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+0)) "vim" C-m
+tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:editor -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+1)) "echo \"I get run in each pane, before each pane command!\"; " C-m
+tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:editor -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+2)) "echo \"I get run in each pane, before each pane command!\"; " C-m
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+2)) "top" C-m
+tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:editor main-vertical
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n shell -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:shell.$((pane_base_index+0)) "git pull" C-m
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n guard -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:guard.$((pane_base_index+0)) "echo \"I get run in each pane.\"; echo \"Before each pane command!\"" C-m
+tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:guard -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:guard.$((pane_base_index+1)) "echo \"I get run in each pane.\"; echo \"Before each pane command!\"" C-m
+tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:guard -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:guard.$((pane_base_index+2)) "echo \"I get run in each pane.\"; echo \"Before each pane command!\"" C-m
+tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:guard tiled
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n database -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:database.$((pane_base_index+0)) "bundle exec rails db" C-m
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n server -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:server.$((pane_base_index+0)) "bundle exec rails s" C-m
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n logs -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:logs.$((pane_base_index+0)) "tail -f log/development.log" C-m
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n console -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:console.$((pane_base_index+0)) "bundle exec rails c" C-m
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n capistrano -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n server2 -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:server2.$((pane_base_index+0)) "ssh user@example.com" C-m
+tmux -L foo -f ~/.tmux.mac.conf select-window -t sample:editor
+fi
+if [ -z "$TMUX" ]; then
+tmux -L foo -f ~/.tmux.mac.conf -u attach-session -t sample
+else
+tmux -L foo -f ~/.tmux.mac.conf -u switch-client -t sample
+fi
