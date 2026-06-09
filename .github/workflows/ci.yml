@@ -36,6 +36,9 @@ jobs:
       - name: Unit tests
         run: meson test -C builddir --print-errorlogs
 
+      - name: Benchmarks
+        run: meson test -C builddir --benchmark --verbose --print-errorlogs
+
       - name: Smoke test
         run: |
           ./builddir/mux version

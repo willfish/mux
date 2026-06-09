@@ -30,6 +30,13 @@ executable('mux', files('src/main.c') + common_src, dependencies: [libyaml], ins
 
 mux_lib = static_library('mux_lib', common_src, dependencies: [libyaml])
 
+benchmark('benchmark_mux',
+  executable('benchmark_mux', 'benchmarks/benchmark_mux.c',
+    link_with: mux_lib,
+    dependencies: [libyaml],
+    include_directories: include_directories('src')),
+  workdir: meson.project_source_root())
+
 test_names = [
   'test_str',
   'test_arena',
