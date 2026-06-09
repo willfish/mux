@@ -11,8 +11,7 @@ add_project_arguments(
 
 libyaml = dependency('yaml-0.1')
 
-src = files(
-  'src/main.c',
+common_src = files(
   'src/cli.c',
   'src/config.c',
   'src/project.c',
@@ -27,25 +26,9 @@ src = files(
   'src/tmux.c',
 )
 
-executable('mux', src, dependencies: [libyaml], install: true)
+executable('mux', files('src/main.c') + common_src, dependencies: [libyaml], install: true)
 
-# Library for tests (everything except main.c)
-lib_src = files(
-  'src/cli.c',
-  'src/config.c',
-  'src/project.c',
-  'src/script.c',
-  'src/path.c',
-  'src/doctor.c',
-  'src/completion.c',
-  'src/shell.c',
-  'src/str.c',
-  'src/arena.c',
-  'src/template.c',
-  'src/tmux.c',
-)
-
-mux_lib = static_library('mux_lib', lib_src, dependencies: [libyaml])
+mux_lib = static_library('mux_lib', common_src, dependencies: [libyaml])
 
 test_names = [
   'test_str',
