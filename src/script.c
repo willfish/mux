@@ -10,20 +10,79 @@ static const char *tmux_cmd(const Project *p) {
     return (p->tmux_command && p->tmux_command[0]) ? p->tmux_command : "tmux";
 }
 
+static int shell_word_is_safe(const char *word) {
+    if (!word || !word[0])
+        return 0;
+
+    for (const char *c = word; *c; c++) {
+        if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z') || (*c >= '0' && *c <= '9')) {
+            continue;
+        }
+        if (strchr("_./:@%+=,~-", *c)) {
+            continue;
+        }
+        return 0;
+    }
+    return 1;
+}
+
+static void append_shell_word(Str *s, const char *word) {
+    if (shell_word_is_safe(word)) {
+        str_append(s, word);
+        return;
+    }
+
+    str_append_char(s, '\'');
+    for (const char *c = word ? word : ""; *c; c++) {
+        if (*c == '\'') {
+            str_append(s, "'\\''");
+        } else {
+            str_append_char(s, *c);
+        }
+    }
+    str_append_char(s, '\'');
+}
+
+static void append_pane_title_arg(Str *s, const char *title) {
+    if (shell_word_is_safe(title)) {
+        str_appendf(s, "\"%s\"", title);
+        return;
+    }
+    append_shell_word(s, title);
+}
+
 static void append_tmux_base(Str *s, const Project *p) {
-    str_append(s, tmux_cmd(p));
+    append_shell_word(s, tmux_cmd(p));
     if (p->socket_name && p->socket_name[0]) {
-        str_appendf(s, " -L %s", p->socket_name);
+        str_append(s, " -L ");
+        append_shell_word(s, p->socket_name);
     }
     if (p->socket_path && p->socket_path[0]) {
-        str_appendf(s, " -S %s", p->socket_path);
+        str_append(s, " -S ");
+        append_shell_word(s, p->socket_path);
     }
     if (p->tmux_options && p->tmux_options[0]) {
         str_appendf(s, " %s", p->tmux_options);
     }
 }
 
-static void append_send_keys_raw(Str *s, const Project *p, const char *target, const char *cmd) {
+static void append_window_target(Str *s, const Project *p, const char *window) {
+    append_shell_word(s, p->name);
+    str_append_char(s, ':');
+    append_shell_word(s, window);
+}
+
+static void append_pane_target(Str *s, const Project *p, const char *window, int pane_index) {
+    append_window_target(s, p, window);
+    str_appendf(s, ".$((pane_base_index+%d))", pane_index);
+}
+
+static void append_session_target(Str *s, const Project *p) {
+    append_shell_word(s, p->name);
+}
+
+static void append_send_keys_raw(Str *s, const Project *p, const char *window, int pane_index,
+                                 const char *cmd) {
     /* Escape double quotes in the command for embedding in bash */
     Str escaped = str_new();
     for (const char *c = cmd; *c; c++) {
@@ -40,13 +99,17 @@ static void append_send_keys_raw(Str *s, const Project *p, const char *target, c
         }
     }
     append_tmux_base(s, p);
-    str_appendf(s, " send-keys -t %s:%s \"%s\" C-m\n", p->name, target, str_cstr(&escaped));
+    str_append(s, " send-keys -t ");
+    append_pane_target(s, p, window, pane_index);
+    str_appendf(s, " \"%s\" C-m\n", str_cstr(&escaped));
     str_free(&escaped);
 }
 
 static const char *window_root(const Project *p, const Window *w) {
-    if (w->root && w->root[0]) return w->root;
-    if (p->root && p->root[0]) return p->root;
+    if (w->root && w->root[0])
+        return w->root;
+    if (p->root && p->root[0])
+        return p->root;
     return NULL;
 }
 
@@ -74,7 +137,9 @@ char *script_generate_start(const Project *p) {
     /* Check if session already exists */
     str_append(&s, "\n# Check if session already exists\n");
     append_tmux_base(&s, p);
-    str_appendf(&s, " has-session -t %s 2>/dev/null\n\n", p->name);
+    str_append(&s, " has-session -t ");
+    append_session_target(&s, p);
+    str_append(&s, " 2>/dev/null\n\n");
     str_append(&s, "if [ $? != 0 ]; then\n\n");
 
     /* on_project_first_start hook */
@@ -88,9 +153,13 @@ char *script_generate_start(const Project *p) {
     const char *first_root = (p->window_count > 0) ? window_root(p, &p->windows[0]) : p->root;
 
     append_tmux_base(&s, p);
-    str_appendf(&s, " new-session -d -s %s -n %s", p->name, first_win_name);
+    str_append(&s, " new-session -d -s ");
+    append_shell_word(&s, p->name);
+    str_append(&s, " -n ");
+    append_shell_word(&s, first_win_name);
     if (first_root && first_root[0]) {
-        str_appendf(&s, " -c %s", first_root);
+        str_append(&s, " -c ");
+        append_shell_word(&s, first_root);
     }
     str_append(&s, "\n");
 
@@ -104,9 +173,13 @@ char *script_generate_start(const Project *p) {
         if (wi > 0) {
             /* Create new window */
             append_tmux_base(&s, p);
-            str_appendf(&s, " new-window -t %s -n %s", p->name, w->name);
+            str_append(&s, " new-window -t ");
+            append_session_target(&s, p);
+            str_append(&s, " -n ");
+            append_shell_word(&s, w->name);
             if (wr && wr[0]) {
-                str_appendf(&s, " -c %s", wr);
+                str_append(&s, " -c ");
+                append_shell_word(&s, wr);
             }
             str_append(&s, "\n");
         }
@@ -114,60 +187,67 @@ char *script_generate_start(const Project *p) {
         /* Synchronize panes "before" — set sync before sending commands */
         if (w->synchronize && strcmp(w->synchronize, "before") == 0) {
             append_tmux_base(&s, p);
-            str_appendf(&s, " set-window-option -t %s:%s synchronize-panes on\n", p->name,
-                         w->name);
+            str_append(&s, " set-window-option -t ");
+            append_window_target(&s, p, w->name);
+            str_append(&s, " synchronize-panes on\n");
         }
 
         /* Create panes (first pane already exists with the window) */
         for (int pi = 0; pi < w->pane_count; pi++) {
             if (pi > 0) {
                 append_tmux_base(&s, p);
-                str_appendf(&s, " splitw -t %s:%s", p->name, w->name);
+                str_append(&s, " splitw -t ");
+                append_window_target(&s, p, w->name);
                 if (wr && wr[0]) {
-                    str_appendf(&s, " -c %s", wr);
+                    str_append(&s, " -c ");
+                    append_shell_word(&s, wr);
                 }
                 str_append(&s, "\n");
             }
 
-            /* Build target: window.pane (offset by pane-base-index) */
-            char target[256];
-            snprintf(target, sizeof(target), "%s.$((pane_base_index+%d))", w->name, pi);
-
             /* Pane title */
             if (p->enable_pane_titles && w->panes[pi].title) {
                 append_tmux_base(&s, p);
-                str_appendf(&s, " select-pane -t %s:%s -T \"%s\"\n", p->name, target,
-                             w->panes[pi].title);
+                str_append(&s, " select-pane -t ");
+                append_pane_target(&s, p, w->name, pi);
+                str_append(&s, " -T ");
+                append_pane_title_arg(&s, w->panes[pi].title);
+                str_append(&s, "\n");
             }
 
             /* pre_window commands */
             if (p->pre_window && p->pre_window[0]) {
-                append_send_keys_raw(&s, p, target, p->pre_window);
+                append_send_keys_raw(&s, p, w->name, pi, p->pre_window);
             }
 
             /* Window-level pre command */
             if (w->pre && w->pre[0]) {
-                append_send_keys_raw(&s, p, target, w->pre);
+                append_send_keys_raw(&s, p, w->name, pi, w->pre);
             }
 
             /* Pane commands */
             Pane *pn = &w->panes[pi];
             for (int ci = 0; ci < pn->command_count; ci++) {
-                append_send_keys_raw(&s, p, target, pn->commands[ci]);
+                append_send_keys_raw(&s, p, w->name, pi, pn->commands[ci]);
             }
         }
 
         /* Set layout after all panes are created */
         if (w->layout && w->layout[0]) {
             append_tmux_base(&s, p);
-            str_appendf(&s, " select-layout -t %s:%s %s\n", p->name, w->name, w->layout);
+            str_append(&s, " select-layout -t ");
+            append_window_target(&s, p, w->name);
+            str_append_char(&s, ' ');
+            append_shell_word(&s, w->layout);
+            str_append(&s, "\n");
         }
 
         /* Synchronize panes "after" — set sync after sending commands */
         if (w->synchronize && strcmp(w->synchronize, "after") == 0) {
             append_tmux_base(&s, p);
-            str_appendf(&s, " set-window-option -t %s:%s synchronize-panes on\n", p->name,
-                         w->name);
+            str_append(&s, " set-window-option -t ");
+            append_window_target(&s, p, w->name);
+            str_append(&s, " synchronize-panes on\n");
         }
     }
 
@@ -176,11 +256,13 @@ char *script_generate_start(const Project *p) {
         str_append(&s, "\n# Pane titles\n");
         append_tmux_base(&s, p);
         str_append(&s, " set-option -g pane-border-status ");
-        str_append(&s, p->pane_title_position ? p->pane_title_position : "top");
+        append_shell_word(&s, p->pane_title_position ? p->pane_title_position : "top");
         str_append(&s, "\n");
         if (p->pane_title_format) {
             append_tmux_base(&s, p);
-            str_appendf(&s, " set-option -g pane-border-format \"%s\"\n", p->pane_title_format);
+            str_append(&s, " set-option -g pane-border-format ");
+            append_shell_word(&s, p->pane_title_format);
+            str_append(&s, "\n");
         }
     }
 
@@ -188,18 +270,23 @@ char *script_generate_start(const Project *p) {
     str_append(&s, "\n# Select startup window/pane\n");
     if (p->startup_window && p->startup_window[0]) {
         append_tmux_base(&s, p);
-        str_appendf(&s, " select-window -t %s:%s\n", p->name, p->startup_window);
+        str_append(&s, " select-window -t ");
+        append_window_target(&s, p, p->startup_window);
+        str_append(&s, "\n");
     } else {
         append_tmux_base(&s, p);
-        str_appendf(&s, " select-window -t %s:%s\n", p->name, first_win_name);
+        str_append(&s, " select-window -t ");
+        append_window_target(&s, p, first_win_name);
+        str_append(&s, "\n");
     }
 
     if (p->startup_pane >= 0) {
         const char *sw =
             (p->startup_window && p->startup_window[0]) ? p->startup_window : first_win_name;
         append_tmux_base(&s, p);
-        str_appendf(&s, " select-pane -t %s:%s.$((pane_base_index+%d))\n", p->name, sw,
-                     p->startup_pane);
+        str_append(&s, " select-pane -t ");
+        append_pane_target(&s, p, sw, p->startup_pane);
+        str_append(&s, "\n");
     }
 
     /* End of "session doesn't exist" block */
@@ -216,11 +303,15 @@ char *script_generate_start(const Project *p) {
         str_append(&s, "if [ -z \"$TMUX\" ]; then\n");
         str_append(&s, "  ");
         append_tmux_base(&s, p);
-        str_appendf(&s, " -u attach-session -t %s\n", p->name);
+        str_append(&s, " -u attach-session -t ");
+        append_session_target(&s, p);
+        str_append(&s, "\n");
         str_append(&s, "else\n");
         str_append(&s, "  ");
         append_tmux_base(&s, p);
-        str_appendf(&s, " -u switch-client -t %s\n", p->name);
+        str_append(&s, " -u switch-client -t ");
+        append_session_target(&s, p);
+        str_append(&s, "\n");
         str_append(&s, "fi\n");
     }
 
@@ -246,7 +337,9 @@ char *script_generate_stop(const Project *p) {
 
     /* Kill session */
     append_tmux_base(&s, p);
-    str_appendf(&s, " kill-session -t %s\n", p->name);
+    str_append(&s, " kill-session -t ");
+    append_session_target(&s, p);
+    str_append(&s, "\n");
 
     char *result = strdup(str_cstr(&s));
     str_free(&s);

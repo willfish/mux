@@ -1,38 +1,35 @@
-#include "greatest.h"
 #include "arena.h"
 #include "config.h"
+#include "greatest.h"
 #include "project.h"
 #include "script.h"
 
 #include <stdlib.h>
 #include <string.h>
 
-static const char *SIMPLE_CONFIG =
-    "name: test\n"
-    "root: ~/projects/test\n"
-    "windows:\n"
-    "  - editor: vim\n"
-    "  - server: bundle exec rails s\n";
+static const char *SIMPLE_CONFIG = "name: test\n"
+                                   "root: ~/projects/test\n"
+                                   "windows:\n"
+                                   "  - editor: vim\n"
+                                   "  - server: bundle exec rails s\n";
 
-static const char *HOOKS_CONFIG =
-    "name: hooked\n"
-    "root: ~/\n"
-    "on_project_start: echo starting\n"
-    "on_project_stop: echo stopping\n"
-    "on_project_exit: echo exiting\n"
-    "windows:\n"
-    "  - main: echo hi\n";
+static const char *HOOKS_CONFIG = "name: hooked\n"
+                                  "root: ~/\n"
+                                  "on_project_start: echo starting\n"
+                                  "on_project_stop: echo stopping\n"
+                                  "on_project_exit: echo exiting\n"
+                                  "windows:\n"
+                                  "  - main: echo hi\n";
 
-static const char *MULTI_PANE_CONFIG =
-    "name: multi\n"
-    "root: ~/\n"
-    "windows:\n"
-    "  - work:\n"
-    "      layout: main-vertical\n"
-    "      panes:\n"
-    "        - vim\n"
-    "        - guard\n"
-    "        - tail -f log/dev.log\n";
+static const char *MULTI_PANE_CONFIG = "name: multi\n"
+                                       "root: ~/\n"
+                                       "windows:\n"
+                                       "  - work:\n"
+                                       "      layout: main-vertical\n"
+                                       "      panes:\n"
+                                       "        - vim\n"
+                                       "        - guard\n"
+                                       "        - tail -f log/dev.log\n";
 
 TEST test_script_start_contains_session(void) {
     Arena a = arena_new();
@@ -114,6 +111,33 @@ TEST test_script_start_is_valid_bash(void) {
     char *script = script_generate_start(&p);
     /* Should start with shebang */
     ASSERT(strncmp(script, "#!/usr/bin/env bash", 19) == 0);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_quotes_shell_sensitive_tmux_arguments(void) {
+    Arena a = arena_new();
+    Project p;
+    const char *config = "name: team's work\n"
+                         "root: /tmp/mux root\n"
+                         "enable_pane_titles: true\n"
+                         "windows:\n"
+                         "  - main window:\n"
+                         "      panes:\n"
+                         "        - Editor $HOME: echo \"$HOME\"\n";
+
+    int ret = config_parse_string(&a, config, strlen(config), &p, NULL, 0);
+    ASSERT_EQ(0, ret);
+
+    char *script = script_generate_start(&p);
+    ASSERT(strstr(script, "new-session -d -s 'team'\\''s work' -n 'main window'") != NULL);
+    ASSERT(strstr(script, "-c '/tmp/mux root'") != NULL);
+    ASSERT(strstr(script, "has-session -t 'team'\\''s work'") != NULL);
+    ASSERT(strstr(script, "select-pane -t 'team'\\''s work':'main window'.$((pane_base_index+0)) "
+                          "-T 'Editor $HOME'") != NULL);
+    ASSERT(strstr(script, "send-keys -t 'team'\\''s work':'main window'.$((pane_base_index+0)) "
+                          "\"echo \\\"\\$HOME\\\"\" C-m") != NULL);
     free(script);
     arena_free(&a);
     PASS();
@@ -317,6 +341,7 @@ SUITE(script_suite) {
     RUN_TEST(test_script_start_hooks);
     RUN_TEST(test_script_start_multi_pane);
     RUN_TEST(test_script_start_is_valid_bash);
+    RUN_TEST(test_script_quotes_shell_sensitive_tmux_arguments);
     RUN_TEST(test_script_stop);
     RUN_TEST(test_script_stop_simple);
 }
