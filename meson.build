@@ -24,6 +24,7 @@ src = files(
   'src/str.c',
   'src/arena.c',
   'src/template.c',
+  'src/tmux.c',
 )
 
 executable('mux', src, dependencies: [libyaml], install: true)
@@ -41,6 +42,7 @@ lib_src = files(
   'src/str.c',
   'src/arena.c',
   'src/template.c',
+  'src/tmux.c',
 )
 
 mux_lib = static_library('mux_lib', lib_src, dependencies: [libyaml])
@@ -54,6 +56,7 @@ test_names = [
   'test_script',
   'test_cli',
   'test_template',
+  'test_tmux',
 ]
 
 foreach t : test_names

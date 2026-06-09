@@ -14,6 +14,7 @@
 #include "script.h"
 #include "shell.h"
 #include "template.h"
+#include "tmux.h"
 
 static const char *DEFAULT_CONFIG_TEMPLATE =
     "# ~/.config/tmuxinator/%s.yml\n"
@@ -286,9 +287,7 @@ static int cmd_list(Arena *a, const CliArgs *args) {
         if (!projects) return 0;
 
         for (int i = 0; i < count; i++) {
-            char cmd[512];
-            snprintf(cmd, sizeof(cmd), "tmux has-session -t %s 2>/dev/null", projects[i]);
-            if (system(cmd) == 0) {
+            if (tmux_has_session(a, projects[i])) {
                 printf("%s\n", projects[i]);
             }
         }
