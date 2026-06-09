@@ -32,6 +32,16 @@ char *shell_escape(Arena *a, const char *s) {
     return result;
 }
 
+char *shell_editor_command(Arena *a, const char *editor, const char *filepath) {
+    Str buf = str_new();
+    str_append(&buf, editor);
+    str_append_char(&buf, ' ');
+    str_append(&buf, shell_escape(a, filepath));
+    char *result = arena_strdup(a, str_cstr(&buf));
+    str_free(&buf);
+    return result;
+}
+
 char *path_expand(Arena *a, const char *path) {
     if (!path) return NULL;
 

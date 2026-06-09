@@ -7,6 +7,10 @@
  * Returns arena-allocated string wrapped in single quotes. */
 char *shell_escape(Arena *a, const char *s);
 
+/* Build an editor command for a file path. The editor command is used as-is,
+ * while the file path is shell-escaped. */
+char *shell_editor_command(Arena *a, const char *editor, const char *filepath);
+
 /* Expand ~ to $HOME at the start of a path. Returns arena-allocated string. */
 char *path_expand(Arena *a, const char *path);
 
