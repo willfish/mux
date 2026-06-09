@@ -113,6 +113,30 @@ static const char *window_root(const Project *p, const Window *w) {
     return NULL;
 }
 
+static int is_nonnegative_int(const char *value) {
+    if (!value || !value[0])
+        return 0;
+    for (const char *c = value; *c; c++) {
+        if (*c < '0' || *c > '9')
+            return 0;
+    }
+    return 1;
+}
+
+static int focused_pane_index(const Window *w) {
+    if (!w->focused_pane || !w->focused_pane[0])
+        return -1;
+    if (is_nonnegative_int(w->focused_pane))
+        return atoi(w->focused_pane);
+
+    for (int i = 0; i < w->pane_count; i++) {
+        if (w->panes[i].title && strcmp(w->panes[i].title, w->focused_pane) == 0) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 char *script_generate_start(const Project *p) {
     Str s = str_with_capacity(4096);
 
@@ -239,6 +263,14 @@ char *script_generate_start(const Project *p) {
             append_window_target(&s, p, w->name);
             str_append_char(&s, ' ');
             append_shell_word(&s, w->layout);
+            str_append(&s, "\n");
+        }
+
+        int focus_index = focused_pane_index(w);
+        if (focus_index >= 0) {
+            append_tmux_base(&s, p);
+            str_append(&s, " select-pane -t ");
+            append_pane_target(&s, p, w->name, focus_index);
             str_append(&s, "\n");
         }
 

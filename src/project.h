@@ -14,6 +14,7 @@ typedef struct {
     char *root;
     char *layout;
     char *pre;
+    char *focused_pane;
     char *synchronize; /* "before", "after", or NULL */
     Pane *panes;
     int pane_count;

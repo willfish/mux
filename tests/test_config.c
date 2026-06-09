@@ -1,91 +1,83 @@
-#include "greatest.h"
 #include "arena.h"
 #include "config.h"
+#include "greatest.h"
 #include "project.h"
 
 #include <string.h>
 
-static const char *SIMPLE_CONFIG =
-    "name: test\n"
-    "root: ~/projects/test\n"
-    "windows:\n"
-    "  - editor: vim\n"
-    "  - server: bundle exec rails s\n";
+static const char *SIMPLE_CONFIG = "name: test\n"
+                                   "root: ~/projects/test\n"
+                                   "windows:\n"
+                                   "  - editor: vim\n"
+                                   "  - server: bundle exec rails s\n";
 
-static const char *FULL_CONFIG =
-    "name: myproject\n"
-    "root: ~/code\n"
-    "tmux_command: tmux\n"
-    "tmux_options: -f ~/.tmux.conf\n"
-    "socket_name: myproject\n"
-    "pre_window: nvm use 18\n"
-    "startup_window: editor\n"
-    "startup_pane: 1\n"
-    "attach: true\n"
-    "on_project_start: echo starting\n"
-    "on_project_stop: echo stopping\n"
-    "windows:\n"
-    "  - editor:\n"
-    "      layout: main-vertical\n"
-    "      panes:\n"
-    "        - vim\n"
-    "        - guard\n"
-    "  - server: bundle exec rails s\n"
-    "  - logs: tail -f log/development.log\n";
+static const char *FULL_CONFIG = "name: myproject\n"
+                                 "root: ~/code\n"
+                                 "tmux_command: tmux\n"
+                                 "tmux_options: -f ~/.tmux.conf\n"
+                                 "socket_name: myproject\n"
+                                 "pre_window: nvm use 18\n"
+                                 "startup_window: editor\n"
+                                 "startup_pane: 1\n"
+                                 "attach: true\n"
+                                 "on_project_start: echo starting\n"
+                                 "on_project_stop: echo stopping\n"
+                                 "windows:\n"
+                                 "  - editor:\n"
+                                 "      layout: main-vertical\n"
+                                 "      panes:\n"
+                                 "        - vim\n"
+                                 "        - guard\n"
+                                 "  - server: bundle exec rails s\n"
+                                 "  - logs: tail -f log/development.log\n";
 
-static const char *PANE_CONFIG =
-    "name: panes\n"
-    "root: ~/\n"
-    "windows:\n"
-    "  - work:\n"
-    "      panes:\n"
-    "        - cd /tmp && ls\n"
-    "        -\n"
-    "        - top\n";
+static const char *PANE_CONFIG = "name: panes\n"
+                                 "root: ~/\n"
+                                 "windows:\n"
+                                 "  - work:\n"
+                                 "      panes:\n"
+                                 "        - cd /tmp && ls\n"
+                                 "        -\n"
+                                 "        - top\n";
 
-static const char *DEPRECATED_CONFIG =
-    "project_name: oldstyle\n"
-    "project_root: ~/old\n"
-    "tabs:\n"
-    "  - main: echo hello\n";
+static const char *DEPRECATED_CONFIG = "project_name: oldstyle\n"
+                                       "project_root: ~/old\n"
+                                       "tabs:\n"
+                                       "  - main: echo hello\n";
 
-static const char *HOOKS_ARRAY_CONFIG =
-    "name: hooks\n"
-    "root: ~/\n"
-    "on_project_start:\n"
-    "  - echo first\n"
-    "  - echo second\n"
-    "windows:\n"
-    "  - main: echo hi\n";
+static const char *HOOKS_ARRAY_CONFIG = "name: hooks\n"
+                                        "root: ~/\n"
+                                        "on_project_start:\n"
+                                        "  - echo first\n"
+                                        "  - echo second\n"
+                                        "windows:\n"
+                                        "  - main: echo hi\n";
 
-static const char *WINDOW_ROOT_CONFIG =
-    "name: roots\n"
-    "root: ~/default\n"
-    "windows:\n"
-    "  - frontend:\n"
-    "      root: ~/frontend\n"
-    "      panes:\n"
-    "        - npm start\n"
-    "  - backend:\n"
-    "      panes:\n"
-    "        - rails s\n";
+static const char *WINDOW_ROOT_CONFIG = "name: roots\n"
+                                        "root: ~/default\n"
+                                        "windows:\n"
+                                        "  - frontend:\n"
+                                        "      root: ~/frontend\n"
+                                        "      panes:\n"
+                                        "        - npm start\n"
+                                        "  - backend:\n"
+                                        "      panes:\n"
+                                        "        - rails s\n";
 
-static const char *EMPTY_PANE_CONFIG =
-    "name: empty\n"
-    "windows:\n"
-    "  - shell:\n"
-    "      panes:\n"
-    "        -\n"
-    "        - ~\n";
+static const char *EMPTY_PANE_CONFIG = "name: empty\n"
+                                       "windows:\n"
+                                       "  - shell:\n"
+                                       "      panes:\n"
+                                       "        -\n"
+                                       "        - ~\n";
 
-static const char *SYNC_CONFIG =
-    "name: sync\n"
-    "windows:\n"
-    "  - synced:\n"
-    "      synchronize: after\n"
-    "      panes:\n"
-    "        - echo 1\n"
-    "        - echo 2\n";
+static const char *SYNC_CONFIG = "name: sync\n"
+                                 "windows:\n"
+                                 "  - synced:\n"
+                                 "      synchronize: after\n"
+                                 "      panes:\n"
+                                 "        - echo 1\n"
+                                 "        - echo 2\n";
 
 TEST test_config_simple(void) {
     Arena a = arena_new();
@@ -147,8 +139,7 @@ TEST test_config_panes(void) {
 TEST test_config_deprecated(void) {
     Arena a = arena_new();
     Project p;
-    int ret =
-        config_parse_string(&a, DEPRECATED_CONFIG, strlen(DEPRECATED_CONFIG), &p, NULL, 0);
+    int ret = config_parse_string(&a, DEPRECATED_CONFIG, strlen(DEPRECATED_CONFIG), &p, NULL, 0);
     ASSERT_EQ(0, ret);
     ASSERT_STR_EQ("oldstyle", p.name);
     ASSERT_STR_EQ("~/old", p.root);
@@ -161,8 +152,7 @@ TEST test_config_deprecated(void) {
 TEST test_config_hooks_array(void) {
     Arena a = arena_new();
     Project p;
-    int ret =
-        config_parse_string(&a, HOOKS_ARRAY_CONFIG, strlen(HOOKS_ARRAY_CONFIG), &p, NULL, 0);
+    int ret = config_parse_string(&a, HOOKS_ARRAY_CONFIG, strlen(HOOKS_ARRAY_CONFIG), &p, NULL, 0);
     ASSERT_EQ(0, ret);
     ASSERT_STR_EQ("echo first; echo second", p.on_project_start);
     arena_free(&a);
@@ -172,8 +162,7 @@ TEST test_config_hooks_array(void) {
 TEST test_config_window_root(void) {
     Arena a = arena_new();
     Project p;
-    int ret =
-        config_parse_string(&a, WINDOW_ROOT_CONFIG, strlen(WINDOW_ROOT_CONFIG), &p, NULL, 0);
+    int ret = config_parse_string(&a, WINDOW_ROOT_CONFIG, strlen(WINDOW_ROOT_CONFIG), &p, NULL, 0);
     ASSERT_EQ(0, ret);
     ASSERT_EQ(2, p.window_count);
     ASSERT_STR_EQ("~/frontend", p.windows[0].root);
@@ -185,8 +174,7 @@ TEST test_config_window_root(void) {
 TEST test_config_empty_panes(void) {
     Arena a = arena_new();
     Project p;
-    int ret =
-        config_parse_string(&a, EMPTY_PANE_CONFIG, strlen(EMPTY_PANE_CONFIG), &p, NULL, 0);
+    int ret = config_parse_string(&a, EMPTY_PANE_CONFIG, strlen(EMPTY_PANE_CONFIG), &p, NULL, 0);
     ASSERT_EQ(0, ret);
     ASSERT_EQ(1, p.window_count);
     ASSERT_EQ(2, p.windows[0].pane_count);
@@ -224,11 +212,10 @@ TEST test_config_defaults(void) {
 
 TEST test_config_with_template(void) {
     Arena a = arena_new();
-    const char *yaml =
-        "name: <%= @settings[\"project\"] %>\n"
-        "root: ~/\n"
-        "windows:\n"
-        "  - main: echo <%= @settings[\"greeting\"] %>\n";
+    const char *yaml = "name: <%= @settings[\"project\"] %>\n"
+                       "root: ~/\n"
+                       "windows:\n"
+                       "  - main: echo <%= @settings[\"greeting\"] %>\n";
 
     const char *settings[] = {"project", "myproj", "greeting", "hello"};
     Project p;
@@ -434,6 +421,17 @@ TEST test_fixture_window_root(void) {
     PASS();
 }
 
+TEST test_fixture_focused_pane(void) {
+    Arena a = arena_new();
+    Project p;
+    int ret = config_parse(&a, FIXTURE_PATH "focused_pane.yml", &p, NULL, 0);
+    ASSERT_EQ(0, ret);
+    ASSERT_STR_EQ("shell", p.windows[0].focused_pane);
+    ASSERT_STR_EQ("0", p.windows[1].focused_pane);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_fixture_template(void) {
     Arena a = arena_new();
     Project p;
@@ -474,6 +472,7 @@ SUITE(fixture_suite) {
     RUN_TEST(test_fixture_startup);
     RUN_TEST(test_fixture_socket);
     RUN_TEST(test_fixture_window_root);
+    RUN_TEST(test_fixture_focused_pane);
     RUN_TEST(test_fixture_template);
 }
 
