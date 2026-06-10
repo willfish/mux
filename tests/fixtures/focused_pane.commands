@@ -1,15 +1,23 @@
+set -euo pipefail
 tmux start-server
 pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
 base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
-tmux has-session -t focused_pane 2>/dev/null
-if [ $? != 0 ]; then
-tmux new-session -d -s focused_pane -n editor -c ~/test
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
+if ! tmux has-session -t focused_pane 2>/dev/null; then
+tmux new-session -d -s focused_pane -x "${MUX_TMUX_COLUMNS:-120}" -y "${MUX_TMUX_LINES:-40}" -n editor -c ~/test
+pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
 tmux select-pane -t focused_pane:editor.$((pane_base_index+0)) -T "editor"
 tmux send-keys -t focused_pane:editor.$((pane_base_index+0)) "vim" C-m
 tmux splitw -t focused_pane:editor -c ~/test
+tmux select-layout -t focused_pane:editor tiled
 tmux select-pane -t focused_pane:editor.$((pane_base_index+1)) -T "shell"
 tmux send-keys -t focused_pane:editor.$((pane_base_index+1)) "bash" C-m
 tmux splitw -t focused_pane:editor -c ~/test
+tmux select-layout -t focused_pane:editor tiled
 tmux select-pane -t focused_pane:editor.$((pane_base_index+2)) -T "logs"
 tmux send-keys -t focused_pane:editor.$((pane_base_index+2)) "tail -f log/development.log" C-m
 tmux select-layout -t focused_pane:editor main-vertical
@@ -17,6 +25,7 @@ tmux select-pane -t focused_pane:editor.$((pane_base_index+1))
 tmux new-window -t focused_pane -n server -c ~/test
 tmux send-keys -t focused_pane:server.$((pane_base_index+0)) "bundle exec rails s" C-m
 tmux splitw -t focused_pane:server -c ~/test
+tmux select-layout -t focused_pane:server tiled
 tmux send-keys -t focused_pane:server.$((pane_base_index+1)) "tail -f log/server.log" C-m
 tmux select-pane -t focused_pane:server.$((pane_base_index+0))
 tmux set-option -g pane-border-status top

@@ -1,11 +1,17 @@
+set -euo pipefail
 tmux start-server
 pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
 base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
 echo "project start"
-tmux has-session -t hooks 2>/dev/null
-if [ $? != 0 ]; then
+if ! tmux has-session -t hooks 2>/dev/null; then
 echo "first start"
-tmux new-session -d -s hooks -n main -c ~/test
+tmux new-session -d -s hooks -x "${MUX_TMUX_COLUMNS:-120}" -y "${MUX_TMUX_LINES:-40}" -n main -c ~/test
+pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
 tmux send-keys -t hooks:main.$((pane_base_index+0)) "echo \"main window\"" C-m
 tmux select-window -t hooks:main
 else
