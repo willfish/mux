@@ -116,6 +116,32 @@ TEST test_script_start_is_valid_bash(void) {
     PASS();
 }
 
+TEST test_script_start_normalizes_empty_tmux_indices(void) {
+    Arena a = arena_new();
+    Project p;
+    config_parse_string(&a, SIMPLE_CONFIG, strlen(SIMPLE_CONFIG), &p, NULL, 0);
+
+    char *script = script_generate_start(&p);
+    ASSERT(strstr(script, "case \"$pane_base_index\" in ''|*[!0-9]*) pane_base_index=0;; esac") != NULL);
+    ASSERT(strstr(script, "case \"$base_index\" in ''|*[!0-9]*) base_index=0;; esac") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_start_tiles_after_splitting_panes(void) {
+    Arena a = arena_new();
+    Project p;
+    config_parse_string(&a, MULTI_PANE_CONFIG, strlen(MULTI_PANE_CONFIG), &p, NULL, 0);
+
+    char *script = script_generate_start(&p);
+    ASSERT(strstr(script, "splitw -t multi:work") != NULL);
+    ASSERT(strstr(script, "select-layout -t multi:work tiled") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_script_quotes_shell_sensitive_tmux_arguments(void) {
     Arena a = arena_new();
     Project p;
@@ -131,7 +157,9 @@ TEST test_script_quotes_shell_sensitive_tmux_arguments(void) {
     ASSERT_EQ(0, ret);
 
     char *script = script_generate_start(&p);
-    ASSERT(strstr(script, "new-session -d -s 'team'\\''s work' -n 'main window'") != NULL);
+    ASSERT(strstr(script, "new-session -d -s 'team'\\''s work' "
+                          "-x \"${MUX_TMUX_COLUMNS:-120}\" -y \"${MUX_TMUX_LINES:-40}\" "
+                          "-n 'main window'") != NULL);
     ASSERT(strstr(script, "-c '/tmp/mux root'") != NULL);
     ASSERT(strstr(script, "has-session -t 'team'\\''s work'") != NULL);
     ASSERT(strstr(script, "select-pane -t 'team'\\''s work':'main window'.$((pane_base_index+0)) "
@@ -355,6 +383,8 @@ SUITE(script_suite) {
     RUN_TEST(test_script_start_hooks);
     RUN_TEST(test_script_start_multi_pane);
     RUN_TEST(test_script_start_is_valid_bash);
+    RUN_TEST(test_script_start_normalizes_empty_tmux_indices);
+    RUN_TEST(test_script_start_tiles_after_splitting_panes);
     RUN_TEST(test_script_quotes_shell_sensitive_tmux_arguments);
     RUN_TEST(test_script_stop);
     RUN_TEST(test_script_stop_simple);

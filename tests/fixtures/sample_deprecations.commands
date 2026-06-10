@@ -1,14 +1,22 @@
+set -euo pipefail
 tmux -L foo -f ~/.tmux.mac.conf start-server
 pane_base_index=$(tmux -L foo -f ~/.tmux.mac.conf show-option -gv pane-base-index 2>/dev/null || echo 0)
 base_index=$(tmux -L foo -f ~/.tmux.mac.conf show-option -gv base-index 2>/dev/null || echo 0)
-tmux -L foo -f ~/.tmux.mac.conf has-session -t sample 2>/dev/null
-if [ $? != 0 ]; then
-tmux -L foo -f ~/.tmux.mac.conf new-session -d -s sample -n editor -c ~/test
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
+if ! tmux -L foo -f ~/.tmux.mac.conf has-session -t sample 2>/dev/null; then
+tmux -L foo -f ~/.tmux.mac.conf new-session -d -s sample -x "${MUX_TMUX_COLUMNS:-120}" -y "${MUX_TMUX_LINES:-40}" -n editor -c ~/test
+pane_base_index=$(tmux -L foo -f ~/.tmux.mac.conf show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux -L foo -f ~/.tmux.mac.conf show-option -gv base-index 2>/dev/null || echo 0)
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+0)) "echo \"I get run in each pane, before each pane command!\"; " C-m
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+0)) "vim" C-m
 tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:editor -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:editor tiled
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+1)) "echo \"I get run in each pane, before each pane command!\"; " C-m
 tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:editor -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:editor tiled
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+2)) "echo \"I get run in each pane, before each pane command!\"; " C-m
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:editor.$((pane_base_index+2)) "top" C-m
 tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:editor main-vertical
@@ -17,8 +25,10 @@ tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:shell.$((pane_base_index+0))
 tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n guard -c ~/test
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:guard.$((pane_base_index+0)) "echo \"I get run in each pane.\"; echo \"Before each pane command!\"" C-m
 tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:guard -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:guard tiled
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:guard.$((pane_base_index+1)) "echo \"I get run in each pane.\"; echo \"Before each pane command!\"" C-m
 tmux -L foo -f ~/.tmux.mac.conf splitw -t sample:guard -c ~/test
+tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:guard tiled
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:guard.$((pane_base_index+2)) "echo \"I get run in each pane.\"; echo \"Before each pane command!\"" C-m
 tmux -L foo -f ~/.tmux.mac.conf select-layout -t sample:guard tiled
 tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n database -c ~/test

@@ -77,6 +77,24 @@ static void append_pane_target(Str *s, const Project *p, const char *window, int
     str_appendf(s, ".$((pane_base_index+%d))", pane_index);
 }
 
+static void append_select_tiled_layout(Str *s, const Project *p, const char *window) {
+    append_tmux_base(s, p);
+    str_append(s, " select-layout -t ");
+    append_window_target(s, p, window);
+    str_append(s, " tiled\n");
+}
+
+static void append_query_base_indices(Str *s, const Project *p) {
+    str_append(s, "pane_base_index=$(");
+    append_tmux_base(s, p);
+    str_append(s, " show-option -gv pane-base-index 2>/dev/null || echo 0)\n");
+    str_append(s, "base_index=$(");
+    append_tmux_base(s, p);
+    str_append(s, " show-option -gv base-index 2>/dev/null || echo 0)\n");
+    str_append(s, "case \"$pane_base_index\" in ''|*[!0-9]*) pane_base_index=0;; esac\n");
+    str_append(s, "case \"$base_index\" in ''|*[!0-9]*) base_index=0;; esac\n");
+}
+
 static void append_session_target(Str *s, const Project *p) {
     append_shell_word(s, p->name);
 }
@@ -140,18 +158,15 @@ static int focused_pane_index(const Window *w) {
 char *script_generate_start(const Project *p) {
     Str s = str_with_capacity(4096);
 
-    str_append(&s, "#!/usr/bin/env bash\n\n");
+    str_append(&s, "#!/usr/bin/env bash\n");
+    str_append(&s, "set -euo pipefail\n\n");
 
     /* Query tmux base indices */
     append_tmux_base(&s, p);
     str_append(&s, " start-server\n\n");
     str_append(&s, "# Get tmux base indices\n");
-    str_append(&s, "pane_base_index=$(");
-    append_tmux_base(&s, p);
-    str_append(&s, " show-option -gv pane-base-index 2>/dev/null || echo 0)\n");
-    str_append(&s, "base_index=$(");
-    append_tmux_base(&s, p);
-    str_append(&s, " show-option -gv base-index 2>/dev/null || echo 0)\n\n");
+    append_query_base_indices(&s, p);
+    str_append(&s, "\n");
 
     /* on_project_start hook */
     if (p->on_project_start && p->on_project_start[0]) {
@@ -160,11 +175,11 @@ char *script_generate_start(const Project *p) {
 
     /* Check if session already exists */
     str_append(&s, "\n# Check if session already exists\n");
+    str_append(&s, "if ! ");
     append_tmux_base(&s, p);
     str_append(&s, " has-session -t ");
     append_session_target(&s, p);
-    str_append(&s, " 2>/dev/null\n\n");
-    str_append(&s, "if [ $? != 0 ]; then\n\n");
+    str_append(&s, " 2>/dev/null; then\n\n");
 
     /* on_project_first_start hook */
     if (p->on_project_first_start && p->on_project_first_start[0]) {
@@ -179,13 +194,16 @@ char *script_generate_start(const Project *p) {
     append_tmux_base(&s, p);
     str_append(&s, " new-session -d -s ");
     append_shell_word(&s, p->name);
+    str_append(&s, " -x \"${MUX_TMUX_COLUMNS:-120}\" -y \"${MUX_TMUX_LINES:-40}\"");
     str_append(&s, " -n ");
     append_shell_word(&s, first_win_name);
     if (first_root && first_root[0]) {
         str_append(&s, " -c ");
         append_shell_word(&s, first_root);
     }
-    str_append(&s, "\n");
+    str_append(&s, "\n\n");
+    str_append(&s, "# Refresh base indices after the first window exists\n");
+    append_query_base_indices(&s, p);
 
     /* Create windows and panes */
     for (int wi = 0; wi < p->window_count; wi++) {
@@ -227,6 +245,7 @@ char *script_generate_start(const Project *p) {
                     append_shell_word(&s, wr);
                 }
                 str_append(&s, "\n");
+                append_select_tiled_layout(&s, p, w->name);
             }
 
             /* Pane title */

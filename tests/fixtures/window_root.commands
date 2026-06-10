@@ -1,9 +1,15 @@
+set -euo pipefail
 tmux start-server
 pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
 base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
-tmux has-session -t window_root 2>/dev/null
-if [ $? != 0 ]; then
-tmux new-session -d -s window_root -n home -c ~/
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
+if ! tmux has-session -t window_root 2>/dev/null; then
+tmux new-session -d -s window_root -x "${MUX_TMUX_COLUMNS:-120}" -y "${MUX_TMUX_LINES:-40}" -n home -c ~/
+pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
+base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
+case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
 tmux send-keys -t window_root:home.$((pane_base_index+0)) "ls" C-m
 tmux new-window -t window_root -n projects -c ~/projects
 tmux send-keys -t window_root:projects.$((pane_base_index+0)) "ls" C-m
