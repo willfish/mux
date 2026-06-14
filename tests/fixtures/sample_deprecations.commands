@@ -44,7 +44,7 @@ tmux -L foo -f ~/.tmux.mac.conf new-window -t sample -n server2 -c ~/test
 tmux -L foo -f ~/.tmux.mac.conf send-keys -t sample:server2.$((pane_base_index+0)) "ssh user@example.com" C-m
 tmux -L foo -f ~/.tmux.mac.conf select-window -t sample:editor
 fi
-if [ -z "$TMUX" ]; then
+if [ -z "${TMUX:-}" ]; then
 tmux -L foo -f ~/.tmux.mac.conf -u attach-session -t sample
 else
 tmux -L foo -f ~/.tmux.mac.conf -u switch-client -t sample

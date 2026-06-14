@@ -351,7 +351,7 @@ char *script_generate_start(const Project *p) {
     /* Attach or switch */
     if (p->attach) {
         str_append(&s, "# Attach to session\n");
-        str_append(&s, "if [ -z \"$TMUX\" ]; then\n");
+        str_append(&s, "if [ -z \"${TMUX:-}\" ]; then\n");
         str_append(&s, "  ");
         append_tmux_base(&s, p);
         str_append(&s, " -u attach-session -t ");
