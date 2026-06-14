@@ -68,6 +68,7 @@ TEST test_script_start_contains_attach(void) {
     config_parse_string(&a, SIMPLE_CONFIG, strlen(SIMPLE_CONFIG), &p, NULL, 0);
 
     char *script = script_generate_start(&p);
+    ASSERT(strstr(script, "if [ -z \"${TMUX:-}\" ]; then") != NULL);
     ASSERT(strstr(script, "attach-session") != NULL);
     ASSERT(strstr(script, "switch-client") != NULL);
     free(script);

@@ -31,7 +31,7 @@ tmux select-pane -t focused_pane:server.$((pane_base_index+0))
 tmux set-option -g pane-border-status top
 tmux select-window -t focused_pane:editor
 fi
-if [ -z "$TMUX" ]; then
+if [ -z "${TMUX:-}" ]; then
 tmux -u attach-session -t focused_pane
 else
 tmux -u switch-client -t focused_pane

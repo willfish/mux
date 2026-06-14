@@ -17,7 +17,7 @@ tmux select-window -t hooks:main
 else
 echo "restart"
 fi
-if [ -z "$TMUX" ]; then
+if [ -z "${TMUX:-}" ]; then
 tmux -u attach-session -t hooks
 else
 tmux -u switch-client -t hooks

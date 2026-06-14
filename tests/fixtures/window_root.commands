@@ -17,7 +17,7 @@ tmux new-window -t window_root -n default_root -c ~/default
 tmux send-keys -t window_root:default_root.$((pane_base_index+0)) "pwd" C-m
 tmux select-window -t window_root:home
 fi
-if [ -z "$TMUX" ]; then
+if [ -z "${TMUX:-}" ]; then
 tmux -u attach-session -t window_root
 else
 tmux -u switch-client -t window_root
