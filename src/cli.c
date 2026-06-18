@@ -8,12 +8,13 @@ static Command parse_command(const char *cmd) {
     if (strcmp(cmd, "start") == 0 || strcmp(cmd, "s") == 0) return CMD_START;
     if (strcmp(cmd, "stop") == 0) return CMD_STOP;
     if (strcmp(cmd, "new") == 0 || strcmp(cmd, "n") == 0) return CMD_NEW;
-    if (strcmp(cmd, "edit") == 0 || strcmp(cmd, "e") == 0 ||
-        strcmp(cmd, "open") == 0 || strcmp(cmd, "o") == 0) return CMD_EDIT;
-    if (strcmp(cmd, "copy") == 0 || strcmp(cmd, "c") == 0 ||
-        strcmp(cmd, "cp") == 0) return CMD_COPY;
-    if (strcmp(cmd, "delete") == 0 || strcmp(cmd, "d") == 0 ||
-        strcmp(cmd, "rm") == 0) return CMD_DELETE;
+    if (strcmp(cmd, "edit") == 0 || strcmp(cmd, "e") == 0 || strcmp(cmd, "open") == 0 ||
+        strcmp(cmd, "o") == 0)
+        return CMD_EDIT;
+    if (strcmp(cmd, "copy") == 0 || strcmp(cmd, "c") == 0 || strcmp(cmd, "cp") == 0)
+        return CMD_COPY;
+    if (strcmp(cmd, "delete") == 0 || strcmp(cmd, "d") == 0 || strcmp(cmd, "rm") == 0)
+        return CMD_DELETE;
     if (strcmp(cmd, "list") == 0 || strcmp(cmd, "l") == 0 || strcmp(cmd, "ls") == 0)
         return CMD_LIST;
     if (strcmp(cmd, "debug") == 0) return CMD_DEBUG;

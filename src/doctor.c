@@ -19,11 +19,9 @@ int doctor_check(void) {
 
     printf("Checking dependencies...\n\n");
 
-    if (check_command("tmux", "which tmux >/dev/null 2>&1") != 0)
-        errors++;
+    if (check_command("tmux", "which tmux >/dev/null 2>&1") != 0) errors++;
 
-    if (check_command("bash", "which bash >/dev/null 2>&1") != 0)
-        errors++;
+    if (check_command("bash", "which bash >/dev/null 2>&1") != 0) errors++;
 
     const char *editor = getenv("EDITOR");
     if (editor && editor[0]) {

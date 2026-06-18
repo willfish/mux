@@ -41,6 +41,12 @@
               enable = true;
               stages = [ "pre-commit" ];
             };
+            clang-format = {
+              enable = true;
+              files = "\\.(c|h)$";
+              excludes = [ "^tests/greatest\\.h$" ];
+              stages = [ "pre-commit" ];
+            };
             deadnix = {
               enable = true;
               stages = [ "pre-commit" ];
@@ -62,6 +68,11 @@
             shellcheck = {
               enable = true;
               args = [ "--severity=error" ];
+              stages = [ "pre-commit" ];
+            };
+            shfmt = {
+              enable = true;
+              settings.indent = 4;
               stages = [ "pre-commit" ];
             };
             statix = {

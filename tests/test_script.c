@@ -123,7 +123,8 @@ TEST test_script_start_normalizes_empty_tmux_indices(void) {
     config_parse_string(&a, SIMPLE_CONFIG, strlen(SIMPLE_CONFIG), &p, NULL, 0);
 
     char *script = script_generate_start(&p);
-    ASSERT(strstr(script, "case \"$pane_base_index\" in ''|*[!0-9]*) pane_base_index=0;; esac") != NULL);
+    ASSERT(strstr(script, "case \"$pane_base_index\" in ''|*[!0-9]*) pane_base_index=0;; esac") !=
+           NULL);
     ASSERT(strstr(script, "case \"$base_index\" in ''|*[!0-9]*) base_index=0;; esac") != NULL);
     free(script);
     arena_free(&a);

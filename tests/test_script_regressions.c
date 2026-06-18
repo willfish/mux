@@ -12,8 +12,7 @@
 
 static char *read_file(const char *path) {
     FILE *f = fopen(path, "r");
-    if (!f)
-        return NULL;
+    if (!f) return NULL;
     fseek(f, 0, SEEK_END);
     long size = ftell(f);
     fseek(f, 0, SEEK_SET);
@@ -53,8 +52,7 @@ static char *normalize_script_commands(const char *script) {
             str_append_char(&normalized, '\n');
         }
 
-        if (!line_end)
-            break;
+        if (!line_end) break;
         line = line_end + 1;
     }
 

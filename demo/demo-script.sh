@@ -6,13 +6,13 @@
 cd "$(dirname "$0")/.."
 
 type_cmd() {
-  local cmd="$1"
-  for (( i=0; i<${#cmd}; i++ )); do
-    printf '%s' "${cmd:$i:1}"
-    sleep 0.03
-  done
-  sleep 0.2
-  printf '\n'
+    local cmd="$1"
+    for ((i = 0; i < ${#cmd}; i++)); do
+        printf '%s' "${cmd:i:1}"
+        sleep 0.03
+    done
+    sleep 0.2
+    printf '\n'
 }
 
 pause() { sleep "${1:-1.2}"; }

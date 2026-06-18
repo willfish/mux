@@ -1,5 +1,5 @@
-#include "greatest.h"
 #include "cli.h"
+#include "greatest.h"
 
 #include <string.h>
 

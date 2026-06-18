@@ -5,8 +5,14 @@ MUX="${MUX:-./builddir/mux}"
 PASS=0
 FAIL=0
 
-pass() { echo "  PASS: $1"; PASS=$((PASS + 1)); }
-fail() { echo "  FAIL: $1"; FAIL=$((FAIL + 1)); }
+pass() {
+    echo "  PASS: $1"
+    PASS=$((PASS + 1))
+}
+fail() {
+    echo "  FAIL: $1"
+    FAIL=$((FAIL + 1))
+}
 
 echo "Running integration tests..."
 echo

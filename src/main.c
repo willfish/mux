@@ -16,19 +16,18 @@
 #include "template.h"
 #include "tmux.h"
 
-static const char *DEFAULT_CONFIG_TEMPLATE =
-    "# ~/.config/tmuxinator/%s.yml\n"
-    "\n"
-    "name: %s\n"
-    "root: ~/\n"
-    "\n"
-    "windows:\n"
-    "  - editor:\n"
-    "      layout: main-vertical\n"
-    "      panes:\n"
-    "        - vim\n"
-    "        -\n"
-    "  - server: echo 'start server'\n";
+static const char *DEFAULT_CONFIG_TEMPLATE = "# ~/.config/tmuxinator/%s.yml\n"
+                                             "\n"
+                                             "name: %s\n"
+                                             "root: ~/\n"
+                                             "\n"
+                                             "windows:\n"
+                                             "  - editor:\n"
+                                             "      layout: main-vertical\n"
+                                             "      panes:\n"
+                                             "        - vim\n"
+                                             "        -\n"
+                                             "  - server: echo 'start server'\n";
 
 /* Parse settings from CLI args into key/value pairs for template substitution */
 static void parse_settings(Arena *a, const CliArgs *args, const char ***settings, int *count) {

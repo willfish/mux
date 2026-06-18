@@ -48,8 +48,8 @@ fi
 # Type effect
 type_cmd() {
     local cmd="$1"
-    for (( i=0; i<${#cmd}; i++ )); do
-        printf '%s' "${cmd:$i:1}"
+    for ((i = 0; i < ${#cmd}; i++)); do
+        printf '%s' "${cmd:i:1}"
         sleep 0.035
     done
     sleep 0.25

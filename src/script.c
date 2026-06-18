@@ -11,8 +11,7 @@ static const char *tmux_cmd(const Project *p) {
 }
 
 static int shell_word_is_safe(const char *word) {
-    if (!word || !word[0])
-        return 0;
+    if (!word || !word[0]) return 0;
 
     for (const char *c = word; *c; c++) {
         if ((*c >= 'A' && *c <= 'Z') || (*c >= 'a' && *c <= 'z') || (*c >= '0' && *c <= '9')) {
@@ -124,28 +123,22 @@ static void append_send_keys_raw(Str *s, const Project *p, const char *window, i
 }
 
 static const char *window_root(const Project *p, const Window *w) {
-    if (w->root && w->root[0])
-        return w->root;
-    if (p->root && p->root[0])
-        return p->root;
+    if (w->root && w->root[0]) return w->root;
+    if (p->root && p->root[0]) return p->root;
     return NULL;
 }
 
 static int is_nonnegative_int(const char *value) {
-    if (!value || !value[0])
-        return 0;
+    if (!value || !value[0]) return 0;
     for (const char *c = value; *c; c++) {
-        if (*c < '0' || *c > '9')
-            return 0;
+        if (*c < '0' || *c > '9') return 0;
     }
     return 1;
 }
 
 static int focused_pane_index(const Window *w) {
-    if (!w->focused_pane || !w->focused_pane[0])
-        return -1;
-    if (is_nonnegative_int(w->focused_pane))
-        return atoi(w->focused_pane);
+    if (!w->focused_pane || !w->focused_pane[0]) return -1;
+    if (is_nonnegative_int(w->focused_pane)) return atoi(w->focused_pane);
 
     for (int i = 0; i < w->pane_count; i++) {
         if (w->panes[i].title && strcmp(w->panes[i].title, w->focused_pane) == 0) {

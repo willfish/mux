@@ -1,5 +1,5 @@
-#include "greatest.h"
 #include "arena.h"
+#include "greatest.h"
 #include "template.h"
 
 TEST test_template_no_tags(void) {
@@ -23,8 +23,8 @@ TEST test_template_basic_substitution(void) {
 TEST test_template_multiple_substitutions(void) {
     Arena a = arena_new();
     const char *settings[] = {"host", "localhost", "port", "3000"};
-    char *r = template_substitute(
-        &a, "<%= @settings[\"host\"] %>:<%= @settings[\"port\"] %>", settings, 4);
+    char *r = template_substitute(&a, "<%= @settings[\"host\"] %>:<%= @settings[\"port\"] %>",
+                                  settings, 4);
     ASSERT_STR_EQ("localhost:3000", r);
     arena_free(&a);
     PASS();

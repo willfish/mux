@@ -33,31 +33,22 @@ void project_dump(const Project *p) {
     printf("  pane_title_position: %s\n",
            p->pane_title_position ? p->pane_title_position : "(none)");
 
-    if (p->on_project_start)
-        printf("  on_project_start: %s\n", p->on_project_start);
+    if (p->on_project_start) printf("  on_project_start: %s\n", p->on_project_start);
     if (p->on_project_first_start)
         printf("  on_project_first_start: %s\n", p->on_project_first_start);
-    if (p->on_project_restart)
-        printf("  on_project_restart: %s\n", p->on_project_restart);
-    if (p->on_project_exit)
-        printf("  on_project_exit: %s\n", p->on_project_exit);
-    if (p->on_project_stop)
-        printf("  on_project_stop: %s\n", p->on_project_stop);
+    if (p->on_project_restart) printf("  on_project_restart: %s\n", p->on_project_restart);
+    if (p->on_project_exit) printf("  on_project_exit: %s\n", p->on_project_exit);
+    if (p->on_project_stop) printf("  on_project_stop: %s\n", p->on_project_stop);
 
     printf("  windows (%d):\n", p->window_count);
     for (int i = 0; i < p->window_count; i++) {
         Window *w = &p->windows[i];
         printf("    [%d] %s\n", i, w->name ? w->name : "(unnamed)");
-        if (w->root)
-            printf("      root: %s\n", w->root);
-        if (w->layout)
-            printf("      layout: %s\n", w->layout);
-        if (w->pre)
-            printf("      pre: %s\n", w->pre);
-        if (w->focused_pane)
-            printf("      focused_pane: %s\n", w->focused_pane);
-        if (w->synchronize)
-            printf("      synchronize: %s\n", w->synchronize);
+        if (w->root) printf("      root: %s\n", w->root);
+        if (w->layout) printf("      layout: %s\n", w->layout);
+        if (w->pre) printf("      pre: %s\n", w->pre);
+        if (w->focused_pane) printf("      focused_pane: %s\n", w->focused_pane);
+        if (w->synchronize) printf("      synchronize: %s\n", w->synchronize);
         printf("      panes (%d):\n", w->pane_count);
         for (int j = 0; j < w->pane_count; j++) {
             Pane *pn = &w->panes[j];

@@ -34,10 +34,8 @@ char **tmux_parse_session_names(Arena *a, const char *output, int *count) {
     while (*line) {
         const char *line_end = strchr(line, '\n');
         size_t len = line_end ? (size_t)(line_end - line) : strlen(line);
-        if (len > 0)
-            lines++;
-        if (!line_end)
-            break;
+        if (len > 0) lines++;
+        if (!line_end) break;
         line = line_end + 1;
     }
 
@@ -50,8 +48,7 @@ char **tmux_parse_session_names(Arena *a, const char *output, int *count) {
         if (len > 0) {
             sessions[n++] = arena_strndup(a, line, len);
         }
-        if (!line_end)
-            break;
+        if (!line_end) break;
         line = line_end + 1;
     }
     sessions[n] = NULL;
@@ -60,8 +57,7 @@ char **tmux_parse_session_names(Arena *a, const char *output, int *count) {
 }
 
 int tmux_session_names_contain(char **session_names, int count, const char *session_name) {
-    if (!session_names || !session_name)
-        return 0;
+    if (!session_names || !session_name) return 0;
 
     for (int i = 0; i < count; i++) {
         if (session_names[i] && strcmp(session_names[i], session_name) == 0) {
