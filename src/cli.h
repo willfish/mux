@@ -30,6 +30,7 @@ typedef struct {
     const char *copy_target;      /* second arg for copy command */
     const char *project_config;   /* --project-config path override */
     const char *override_name;    /* --name override */
+    const char *backend;          /* tmux or herdr */
     const char *completion_shell; /* bash, zsh, or fish */
     bool append;                  /* --append flag */
     bool active_only;             /* --active flag for list */

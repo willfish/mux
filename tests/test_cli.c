@@ -230,6 +230,16 @@ TEST test_cli_append_flag(void) {
     PASS();
 }
 
+TEST test_cli_backend_flag(void) {
+    char *argv[] = {"mux", "start", "--backend", "herdr", "work"};
+    CliArgs args;
+    cli_parse(5, argv, &args);
+    ASSERT_EQ(CMD_START, args.command);
+    ASSERT_STR_EQ("herdr", args.backend);
+    ASSERT_STR_EQ("work", args.project_name);
+    PASS();
+}
+
 SUITE(cli_suite) {
     RUN_TEST(test_cli_no_args);
     RUN_TEST(test_cli_version);
@@ -255,6 +265,7 @@ SUITE(cli_suite) {
     RUN_TEST(test_cli_start_with_settings);
     RUN_TEST(test_cli_name_override);
     RUN_TEST(test_cli_append_flag);
+    RUN_TEST(test_cli_backend_flag);
 }
 
 GREATEST_MAIN_DEFS();

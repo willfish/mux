@@ -62,21 +62,22 @@ int cli_parse(int argc, char **argv, CliArgs *args) {
 
     /* Parse remaining arguments based on command */
     static struct option long_opts[] = {
-        {"append", no_argument, 0, 'a'},
-        {"name", required_argument, 0, 'n'},
-        {"project-config", required_argument, 0, 'p'},
-        {"active", no_argument, 0, 'A'},
-        {0, 0, 0, 0},
+        {"append", no_argument, 0, 'a'},     {"backend", required_argument, 0, 'b'},
+        {"name", required_argument, 0, 'n'}, {"project-config", required_argument, 0, 'p'},
+        {"active", no_argument, 0, 'A'},     {0, 0, 0, 0},
     };
 
     /* Reset getopt */
     optind = 2;
 
     int opt;
-    while ((opt = getopt_long(argc, argv, "+an:p:A", long_opts, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "+ab:n:p:A", long_opts, NULL)) != -1) {
         switch (opt) {
         case 'a':
             args->append = true;
+            break;
+        case 'b':
+            args->backend = optarg;
             break;
         case 'n':
             args->override_name = optarg;
@@ -141,6 +142,7 @@ void cli_usage(void) {
     printf("  help, h                  Show this help\n");
     printf("\nOptions:\n");
     printf("  -a, --append             Add windows to existing session\n");
+    printf("  -b, --backend NAME       Backend to use: tmux or herdr (experimental)\n");
     printf("  -n, --name NAME          Override session name\n");
     printf("  -p, --project-config P   Specify config file path\n");
     printf("  -A, --active             Only list active sessions (for list)\n");

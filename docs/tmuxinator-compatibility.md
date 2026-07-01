@@ -25,6 +25,7 @@ locations.
 | Pane synchronization | `synchronize: before`, `after`, `true`, `false` | Supported | `synchronize.yml`, script tests |
 | Focus pane | `focused_pane` by index or named pane | Supported | `focused_pane.yml`, `focused_pane.commands` |
 | Deprecated aliases | `project_name`, `project_root`, `tabs`, `cli_args` | Supported | `sample_deprecations.yml`, `sample_deprecations.commands` |
+| Experimental Herdr backend | `--backend herdr`, `MUX_BACKEND=herdr` | Maps project to workspace, windows to tabs, panes to splits | `test_script`, live Herdr validation |
 
 ## Partial Or Unsupported
 
@@ -36,6 +37,7 @@ locations.
 | `append` start mode | Unsupported | The CLI parses `--append`, but start script generation still creates/selects a named session rather than appending windows to the current session. |
 | Recording from an existing tmux session | Unsupported | `tmuxinator new [project] [session]` is not implemented. |
 | Local project creation | Unsupported | `mux local` starts `./.tmuxinator.yml`, but `new --local` style creation is not implemented. |
+| Herdr layout fidelity | Partial | The Herdr backend approximates tmux `layout:` values with Herdr split directions and ratios because Herdr does not accept tmux layout strings. |
 
 ## Fixture Policy
 

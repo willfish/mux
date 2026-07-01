@@ -138,6 +138,7 @@ mux ls, l                 list
 ```
 -n, --name NAME           Override session name
 -p, --project-config P    Specify config file path
+-b, --backend NAME        Backend to use: tmux or herdr (experimental)
 -a, --append              Add windows to existing session
 -A, --active              Only list active sessions
 ```
@@ -177,6 +178,30 @@ windows:
   - server: bundle exec rails s
   - logs: tail -f log/development.log
 ```
+
+### Experimental Herdr backend
+
+mux can also launch tmuxinator layouts into a running Herdr session:
+
+```sh
+mux start work --backend herdr
+MUX_BACKEND=herdr mux start work
+```
+
+The Herdr backend maps one tmuxinator project to one Herdr workspace, maps
+tmuxinator windows to Herdr tabs, and maps panes to Herdr pane splits. Pane
+names are applied with `herdr pane rename`, and pane commands are sent to the
+pane shell just like the tmux backend sends keys to tmux panes.
+
+This backend is experimental and intentionally keeps tmux as the default.
+Known limitations:
+
+- A Herdr session must already be running.
+- `python3` is required at runtime to parse Herdr's JSON CLI output.
+- tmux `layout:` strings are approximated with Herdr split directions and
+  ratios; Herdr does not currently replay tmux layout strings directly.
+- tmux-specific options such as sockets, tmux command overrides, and tmux pane
+  synchronization do not have Herdr equivalents.
 
 ## Compatibility
 

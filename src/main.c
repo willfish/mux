@@ -16,6 +16,21 @@
 #include "template.h"
 #include "tmux.h"
 
+static const char *selected_backend(const CliArgs *args) {
+    if (args->backend && args->backend[0]) return args->backend;
+    const char *env_backend = getenv("MUX_BACKEND");
+    if (env_backend && env_backend[0]) return env_backend;
+    return "tmux";
+}
+
+static int backend_is_herdr(const CliArgs *args) {
+    const char *backend = selected_backend(args);
+    if (strcmp(backend, "herdr") == 0) return 1;
+    if (strcmp(backend, "tmux") == 0) return 0;
+    fprintf(stderr, "mux: unknown backend '%s' (use tmux or herdr)\n", backend);
+    return -1;
+}
+
 static const char *DEFAULT_CONFIG_TEMPLATE = "# ~/.config/tmuxinator/%s.yml\n"
                                              "\n"
                                              "name: %s\n"
@@ -87,7 +102,10 @@ static int cmd_start(Arena *a, const CliArgs *args) {
     Project p;
     if (load_project(a, args, &p) != 0) return 1;
 
-    char *script = script_generate_start(&p);
+    int herdr = backend_is_herdr(args);
+    if (herdr < 0) return 1;
+
+    char *script = herdr ? script_generate_start_herdr(&p) : script_generate_start(&p);
     if (!script) {
         fprintf(stderr, "mux: failed to generate start script\n");
         return 1;
@@ -102,7 +120,10 @@ static int cmd_stop(Arena *a, const CliArgs *args) {
     Project p;
     if (load_project(a, args, &p) != 0) return 1;
 
-    char *script = script_generate_stop(&p);
+    int herdr = backend_is_herdr(args);
+    if (herdr < 0) return 1;
+
+    char *script = herdr ? script_generate_stop_herdr(&p) : script_generate_stop(&p);
     if (!script) {
         fprintf(stderr, "mux: failed to generate stop script\n");
         return 1;
@@ -117,7 +138,10 @@ static int cmd_debug(Arena *a, const CliArgs *args) {
     Project p;
     if (load_project(a, args, &p) != 0) return 1;
 
-    char *script = script_generate_start(&p);
+    int herdr = backend_is_herdr(args);
+    if (herdr < 0) return 1;
+
+    char *script = herdr ? script_generate_start_herdr(&p) : script_generate_start(&p);
     if (!script) {
         fprintf(stderr, "mux: failed to generate script\n");
         return 1;
@@ -320,7 +344,10 @@ static int cmd_local(Arena *a, const CliArgs *args) {
         p.name = arena_strdup(a, args->override_name);
     }
 
-    char *script = script_generate_start(&p);
+    int herdr = backend_is_herdr(args);
+    if (herdr < 0) return 1;
+
+    char *script = herdr ? script_generate_start_herdr(&p) : script_generate_start(&p);
     if (!script) return 1;
 
     int ret = shell_exec_bash(script);

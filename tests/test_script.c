@@ -144,6 +144,40 @@ TEST test_script_start_tiles_after_splitting_panes(void) {
     PASS();
 }
 
+TEST test_script_herdr_maps_windows_to_workspace_tabs_and_panes(void) {
+    Arena a = arena_new();
+    Project p;
+    config_parse_string(&a, MULTI_PANE_CONFIG, strlen(MULTI_PANE_CONFIG), &p, NULL, 0);
+
+    char *script = script_generate_start_herdr(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "workspace create --focus --cwd ~/ --label multi") != NULL);
+    ASSERT(strstr(script, "tab rename \"$tab_0\" work") != NULL);
+    ASSERT(strstr(script, "pane split \"$pane_0_0\" --direction right") != NULL);
+    ASSERT(strstr(script, "pane send-text \"$pane_0_0\" vim") != NULL);
+    ASSERT(strstr(script, "pane send-text \"$pane_0_1\" guard") != NULL);
+    ASSERT(strstr(script, "pane send-text \"$pane_0_2\" 'tail -f log/dev.log'") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_herdr_stop_closes_matching_workspace(void) {
+    Arena a = arena_new();
+    Project p;
+    config_parse_string(&a, HOOKS_CONFIG, strlen(HOOKS_CONFIG), &p, NULL, 0);
+
+    char *script = script_generate_stop_herdr(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "echo stopping") != NULL);
+    ASSERT(strstr(script, "workspace close \"$workspace_id\"") != NULL);
+    ASSERT(strstr(script, "label = sys.argv[1]") != NULL);
+    ASSERT(strstr(script, " hooked | while") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_script_quotes_shell_sensitive_tmux_arguments(void) {
     Arena a = arena_new();
     Project p;
@@ -387,6 +421,8 @@ SUITE(script_suite) {
     RUN_TEST(test_script_start_is_valid_bash);
     RUN_TEST(test_script_start_normalizes_empty_tmux_indices);
     RUN_TEST(test_script_start_tiles_after_splitting_panes);
+    RUN_TEST(test_script_herdr_maps_windows_to_workspace_tabs_and_panes);
+    RUN_TEST(test_script_herdr_stop_closes_matching_workspace);
     RUN_TEST(test_script_quotes_shell_sensitive_tmux_arguments);
     RUN_TEST(test_script_stop);
     RUN_TEST(test_script_stop_simple);

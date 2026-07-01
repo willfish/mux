@@ -7,8 +7,17 @@
  * Returns a malloc'd string (caller must free). */
 char *script_generate_start(const Project *p);
 
+/* Generate a bash script to start a Herdr workspace for the given project.
+ * Experimental: tmux layouts are approximated with Herdr pane splits.
+ * Returns a malloc'd string (caller must free). */
+char *script_generate_start_herdr(const Project *p);
+
 /* Generate a bash script to stop (kill) a tmux session.
  * Returns a malloc'd string (caller must free). */
 char *script_generate_stop(const Project *p);
+
+/* Generate a bash script to stop (close) a Herdr workspace by project label.
+ * Returns a malloc'd string (caller must free). */
+char *script_generate_stop_herdr(const Project *p);
 
 #endif
