@@ -586,10 +586,11 @@ char *script_generate_start_herdr(const Project *p) {
             if (pi > 0) {
                 char prev_pane_var[64];
                 snprintf(prev_pane_var, sizeof(prev_pane_var), "pane_%d_%d", wi, pi - 1);
+                double split_ratio = 1.0 / (double)(w->pane_count - pi + 1);
                 str_appendf(&s,
                             "split_json_%d_%d=$(\"$herdr_cmd\" pane split \"$%s\" --direction %s "
-                            "--ratio 0.5 --focus",
-                            wi, pi, prev_pane_var, direction);
+                            "--ratio %.6f --focus",
+                            wi, pi, prev_pane_var, direction, split_ratio);
                 append_herdr_cwd_arg(&s, wr);
                 str_append(&s, ")\n");
                 char json_var[64];

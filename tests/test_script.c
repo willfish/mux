@@ -153,7 +153,10 @@ TEST test_script_herdr_maps_windows_to_workspace_tabs_and_panes(void) {
     ASSERT(script != NULL);
     ASSERT(strstr(script, "workspace create --focus --cwd ~/ --label multi") != NULL);
     ASSERT(strstr(script, "tab rename \"$tab_0\" work") != NULL);
-    ASSERT(strstr(script, "pane split \"$pane_0_0\" --direction right") != NULL);
+    ASSERT(strstr(script, "pane split \"$pane_0_0\" --direction right --ratio 0.333333 --focus") !=
+           NULL);
+    ASSERT(strstr(script, "pane split \"$pane_0_1\" --direction right --ratio 0.500000 --focus") !=
+           NULL);
     ASSERT(strstr(script, "pane send-text \"$pane_0_0\" vim") != NULL);
     ASSERT(strstr(script, "pane send-text \"$pane_0_1\" guard") != NULL);
     ASSERT(strstr(script, "pane send-text \"$pane_0_2\" 'tail -f log/dev.log'") != NULL);
