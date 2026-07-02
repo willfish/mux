@@ -1,12 +1,17 @@
 # mux
 
-A fast, dependency-free tmuxinator replacement written in C.
+A fast, dependency-free tmuxinator replacement for tmux and Herdr, written in C.
+
+[![Backends: tmux + Herdr](https://img.shields.io/badge/backends-tmux%20%2B%20Herdr-0f766e?style=for-the-badge)](#multiplexer-backends)
+[![Language: C](https://img.shields.io/badge/language-C-555?style=for-the-badge)](https://en.wikipedia.org/wiki/C_%28programming_language%29)
 
 ![mux demo](demo.gif)
 
 ## Why
 
-tmuxinator requires Ruby. mux is a single binary with no runtime dependencies beyond tmux itself.
+tmuxinator requires Ruby. mux is a single binary that launches the same
+tmuxinator-style project files into either classic tmux sessions or Herdr
+workspaces.
 
 ### Size comparison
 
@@ -16,6 +21,20 @@ tmuxinator requires Ruby. mux is a single binary with no runtime dependencies be
 | tmuxinator | 85 MB |
 
 That's **~1300x smaller**. The tmuxinator closure includes Ruby, RubyGems, and all gem dependencies. mux just needs libyaml and libc.
+
+## Multiplexer backends
+
+**One config. Two multiplexers.** mux turns tmuxinator-compatible YAML into
+repeatable terminal workspaces for both:
+
+- **tmux** - the default backend, with full tmuxinator-style session support
+- **Herdr** - a workspace/tab/pane backend for AI-agent-friendly terminal layouts
+
+```sh
+mux start work              # tmux backend
+mux start work --backend herdr
+MUX_BACKEND=herdr mux start work
+```
 
 ## Install
 
@@ -109,8 +128,8 @@ meson test -C builddir
 ## Usage
 
 ```
-mux start <project>       Start a tmux session
-mux stop <project>        Stop a tmux session
+mux start <project>       Start a tmux session or Herdr workspace
+mux stop <project>        Stop a tmux session or Herdr workspace
 mux new <project>         Create a new project config
 mux edit <project>        Edit a project config in $EDITOR
 mux copy <src> <dst>      Copy a project config
@@ -138,7 +157,7 @@ mux ls, l                 list
 ```
 -n, --name NAME           Override session name
 -p, --project-config P    Specify config file path
--b, --backend NAME        Backend to use: tmux or herdr (experimental)
+-b, --backend NAME        Backend to use: tmux or herdr
 -a, --append              Add windows to existing session
 -A, --active              Only list active sessions
 ```
@@ -179,24 +198,26 @@ windows:
   - logs: tail -f log/development.log
 ```
 
-### Experimental Herdr backend
+### tmux and Herdr backends
 
-mux can also launch tmuxinator layouts into a running Herdr session:
+mux launches tmuxinator layouts into tmux by default, and can launch the same
+layouts into Herdr workspaces:
 
 ```sh
 mux start work --backend herdr
 MUX_BACKEND=herdr mux start work
 ```
 
-The Herdr backend maps one tmuxinator project to one Herdr workspace, maps
-tmuxinator windows to Herdr tabs, and maps panes to Herdr pane splits. Pane
-names are applied with `herdr pane rename`, and pane commands are sent to the
-pane shell just like the tmux backend sends keys to tmux panes.
+The Herdr backend starts the Herdr server when needed, maps one tmuxinator
+project to one Herdr workspace, maps tmuxinator windows to Herdr tabs, and maps
+panes to Herdr pane splits. Pane names are applied with `herdr pane rename`,
+and pane commands are sent to the pane shell just like the tmux backend sends
+keys to tmux panes.
 
-This backend is experimental and intentionally keeps tmux as the default.
+tmux remains the default backend unless `--backend herdr` or
+`MUX_BACKEND=herdr` is set.
 Known limitations:
 
-- A Herdr session must already be running.
 - `python3` is required at runtime to parse Herdr's JSON CLI output.
 - tmux `layout:` strings are approximated with Herdr split directions and
   ratios; Herdr does not currently replay tmux layout strings directly.
