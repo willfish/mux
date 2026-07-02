@@ -436,6 +436,28 @@ char *script_generate_start_herdr(const Project *p) {
     str_append(&s, "# shellcheck disable=SC2016,SC2034\n");
     str_append(&s, "set -euo pipefail\n\n");
     str_append(&s, "herdr_cmd=${MUX_HERDR_COMMAND:-herdr}\n\n");
+    str_append(&s, "mux_herdr_server_running() {\n");
+    str_append(&s, "  case $(\"$herdr_cmd\" status server 2>/dev/null || true) in\n");
+    str_append(&s, "    *'status: running'*) return 0 ;;\n");
+    str_append(&s, "    *) return 1 ;;\n");
+    str_append(&s, "  esac\n");
+    str_append(&s, "}\n\n");
+    str_append(&s, "mux_herdr_ensure_server() {\n");
+    str_append(&s, "  if mux_herdr_server_running; then\n");
+    str_append(&s, "    return 0\n");
+    str_append(&s, "  fi\n");
+    str_append(&s, "  \"$herdr_cmd\" server >/dev/null 2>&1 &\n");
+    str_append(&s, "  for _ in 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 "
+                   "21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 "
+                   "41 42 43 44 45 46 47 48 49 50; do\n");
+    str_append(&s, "    if mux_herdr_server_running; then\n");
+    str_append(&s, "      return 0\n");
+    str_append(&s, "    fi\n");
+    str_append(&s, "    sleep 0.1\n");
+    str_append(&s, "  done\n");
+    str_append(&s, "  echo \"mux: failed to start Herdr server\" >&2\n");
+    str_append(&s, "  exit 1\n");
+    str_append(&s, "}\n\n");
     str_append(&s, "mux_herdr_need_python() {\n");
     str_append(&s, "  if ! command -v python3 >/dev/null 2>&1; then\n");
     str_append(&s, "    echo \"mux: herdr backend requires python3 for Herdr JSON parsing\" >&2\n");
@@ -445,7 +467,12 @@ char *script_generate_start_herdr(const Project *p) {
     str_append(&s, "mux_herdr_json_value() {\n");
     str_append(&s, "  python3 -c 'import json, sys\n");
     str_append(&s, "key = sys.argv[1]\n");
-    str_append(&s, "doc = json.load(sys.stdin)\n");
+    str_append(&s, "try:\n");
+    str_append(&s, "    doc = json.load(sys.stdin)\n");
+    str_append(&s, "except Exception as exc:\n");
+    str_append(&s, "    print(f\"mux: herdr returned invalid JSON while reading {key}: {exc}\", "
+                   "file=sys.stderr)\n");
+    str_append(&s, "    sys.exit(1)\n");
     str_append(&s, "def walk(value):\n");
     str_append(&s, "    if isinstance(value, dict):\n");
     str_append(&s, "        if key in value:\n");
@@ -463,12 +490,21 @@ char *script_generate_start_herdr(const Project *p) {
     str_append(&s, "value = walk(doc)\n");
     str_append(&s, "if value is not None:\n");
     str_append(&s, "    print(value)\n");
+    str_append(&s, "else:\n");
+    str_append(&s,
+               "    print(f\"mux: herdr JSON response did not include {key}\", file=sys.stderr)\n");
+    str_append(&s, "    sys.exit(1)\n");
     str_append(&s, "' \"$1\"\n");
     str_append(&s, "}\n\n");
     str_append(&s, "mux_herdr_workspace_by_label() {\n");
     str_append(&s, "  \"$herdr_cmd\" workspace list | python3 -c 'import json, sys\n");
     str_append(&s, "label = sys.argv[1]\n");
-    str_append(&s, "doc = json.load(sys.stdin)\n");
+    str_append(&s, "try:\n");
+    str_append(&s, "    doc = json.load(sys.stdin)\n");
+    str_append(&s, "except Exception as exc:\n");
+    str_append(&s, "    print(f\"mux: herdr returned invalid JSON while reading workspace list: "
+                   "{exc}\", file=sys.stderr)\n");
+    str_append(&s, "    sys.exit(1)\n");
     str_append(&s, "for workspace in doc.get(\"result\", {}).get(\"workspaces\", []):\n");
     str_append(&s, "    if workspace.get(\"label\") == label:\n");
     str_append(&s, "        print(workspace.get(\"workspace_id\", \"\"))\n");
@@ -484,12 +520,7 @@ char *script_generate_start_herdr(const Project *p) {
     str_append(&s, "  fi\n");
     str_append(&s, "}\n\n");
     str_append(&s, "mux_herdr_need_python\n");
-    str_append(&s, "if ! \"$herdr_cmd\" status server >/dev/null 2>&1; then\n");
-    str_append(
-        &s,
-        "  echo \"mux: herdr backend requires a running Herdr session; start herdr first\" >&2\n");
-    str_append(&s, "  exit 1\n");
-    str_append(&s, "fi\n\n");
+    str_append(&s, "mux_herdr_ensure_server\n\n");
 
     if (p->on_project_start && p->on_project_start[0]) {
         str_appendf(&s, "%s\n", p->on_project_start);
@@ -642,7 +673,12 @@ char *script_generate_stop_herdr(const Project *p) {
     str_append(&s, "fi\n");
     str_append(&s, "\"$herdr_cmd\" workspace list | python3 -c 'import json, sys\n");
     str_append(&s, "label = sys.argv[1]\n");
-    str_append(&s, "doc = json.load(sys.stdin)\n");
+    str_append(&s, "try:\n");
+    str_append(&s, "    doc = json.load(sys.stdin)\n");
+    str_append(&s, "except Exception as exc:\n");
+    str_append(&s, "    print(f\"mux: herdr returned invalid JSON while reading workspace list: "
+                   "{exc}\", file=sys.stderr)\n");
+    str_append(&s, "    sys.exit(1)\n");
     str_append(&s, "for workspace in doc.get(\"result\", {}).get(\"workspaces\", []):\n");
     str_append(&s, "    if workspace.get(\"label\") == label:\n");
     str_append(&s, "        print(workspace.get(\"workspace_id\", \"\"))\n");

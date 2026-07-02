@@ -162,6 +162,37 @@ TEST test_script_herdr_maps_windows_to_workspace_tabs_and_panes(void) {
     PASS();
 }
 
+TEST test_script_herdr_reports_bad_json_without_python_traceback(void) {
+    Arena a = arena_new();
+    Project p;
+    config_parse_string(&a, MULTI_PANE_CONFIG, strlen(MULTI_PANE_CONFIG), &p, NULL, 0);
+
+    char *script = script_generate_start_herdr(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "json.JSONDecodeError") == NULL);
+    ASSERT(strstr(script, "except Exception as exc:") != NULL);
+    ASSERT(strstr(script, "mux: herdr returned invalid JSON while reading") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_herdr_starts_server_when_missing(void) {
+    Arena a = arena_new();
+    Project p;
+    config_parse_string(&a, MULTI_PANE_CONFIG, strlen(MULTI_PANE_CONFIG), &p, NULL, 0);
+
+    char *script = script_generate_start_herdr(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "mux_herdr_server_running()") != NULL);
+    ASSERT(strstr(script, "\"$herdr_cmd\" server >/dev/null 2>&1 &") != NULL);
+    ASSERT(strstr(script, "mux_herdr_ensure_server") != NULL);
+    ASSERT(strstr(script, "requires a running Herdr session") == NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_script_herdr_stop_closes_matching_workspace(void) {
     Arena a = arena_new();
     Project p;
@@ -422,6 +453,8 @@ SUITE(script_suite) {
     RUN_TEST(test_script_start_normalizes_empty_tmux_indices);
     RUN_TEST(test_script_start_tiles_after_splitting_panes);
     RUN_TEST(test_script_herdr_maps_windows_to_workspace_tabs_and_panes);
+    RUN_TEST(test_script_herdr_reports_bad_json_without_python_traceback);
+    RUN_TEST(test_script_herdr_starts_server_when_missing);
     RUN_TEST(test_script_herdr_stop_closes_matching_workspace);
     RUN_TEST(test_script_quotes_shell_sensitive_tmux_arguments);
     RUN_TEST(test_script_stop);
