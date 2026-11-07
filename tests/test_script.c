@@ -212,6 +212,103 @@ TEST test_script_herdr_stop_closes_matching_workspace(void) {
     PASS();
 }
 
+TEST test_script_herdr_app_maps_windows_and_splits_before_commands(void) {
+    Arena a = arena_new();
+    Project p;
+    ASSERT_EQ(0,
+              config_parse_string(&a, MULTI_PANE_CONFIG, strlen(MULTI_PANE_CONFIG), &p, NULL, 0));
+
+    char *script = script_generate_start_herdr_app(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "do space.new --machine '' --name multi --tab work --folder ~/") != NULL);
+    const char *split = strstr(script, "do pane.split --pane \"$pane_0_0\" --direction right");
+    const char *send = strstr(script, "mux_app_send \"$terminal_0_0\" ~/ vim");
+    ASSERT(split != NULL);
+    ASSERT(send != NULL);
+    ASSERT(split < send);
+    ASSERT(strstr(script, "do pane.split --pane \"$pane_0_1\" --direction right") != NULL);
+    ASSERT(strstr(script, "mux_app_send \"$terminal_0_2\" ~/ 'tail -f log/dev.log'") != NULL);
+    ASSERT(strstr(script, "shlex.quote(sys.argv[1])") != NULL);
+    ASSERT(strstr(script, "session attach") == NULL);
+    ASSERT(strstr(script, " server ") == NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_herdr_app_reuses_only_local_spaces(void) {
+    Arena a = arena_new();
+    Project p;
+    ASSERT_EQ(0, config_parse_string(&a, HOOKS_CONFIG, strlen(HOOKS_CONFIG), &p, NULL, 0));
+
+    char *script = script_generate_start_herdr_app(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "if not s.get(\"machine\") and s[\"name\"] == key") != NULL);
+    ASSERT(strstr(script, "more than one local space has that name") != NULL);
+    ASSERT(strstr(script, "do space.select --id \"$space_id\"") != NULL);
+    ASSERT(strstr(script, "echo starting") < strstr(script, "space_id=$("));
+    ASSERT(strstr(script, "echo exiting\n  exit 0\nfi") != NULL);
+    ASSERT(strstr(script, "requires an open Herdr app window") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_herdr_app_roots_hooks_and_startup_focus(void) {
+    const char *config = "name: team's work\n"
+                         "root: /tmp/mux root\n"
+                         "pre_window: echo ready\n"
+                         "on_project_first_start: echo first\n"
+                         "startup_window: services\n"
+                         "startup_pane: 1\n"
+                         "windows:\n"
+                         "  - postgres: echo \"$HOME\"\n"
+                         "  - services:\n"
+                         "      root: /tmp/services\n"
+                         "      pre: echo services\n"
+                         "      panes:\n"
+                         "        - echo one\n"
+                         "        - echo two\n";
+    Arena a = arena_new();
+    Project p;
+    ASSERT_EQ(0, config_parse_string(&a, config, strlen(config), &p, NULL, 0));
+
+    char *script = script_generate_start_herdr_app(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "--name 'team'\\''s work' --tab postgres --folder '/tmp/mux root'") !=
+           NULL);
+    ASSERT(
+        strstr(script, "do tab.new --space \"$space_id\" --name services --folder /tmp/services") !=
+        NULL);
+    ASSERT(strstr(script, "echo first") < strstr(script, "do space.new"));
+    ASSERT(
+        strstr(
+            script,
+            "mux_app_send \"$terminal_1_1\" /tmp/services 'echo ready\necho services\necho two'") !=
+        NULL);
+    ASSERT(strstr(script, "do tab.select --id \"$tab_1\"") != NULL);
+    ASSERT(strstr(script, "do pane.focus --pane \"$pane_1_1\"") != NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_script_herdr_app_stop_closes_named_space_without_core_restart(void) {
+    Arena a = arena_new();
+    Project p;
+    ASSERT_EQ(0, config_parse_string(&a, HOOKS_CONFIG, strlen(HOOKS_CONFIG), &p, NULL, 0));
+
+    char *script = script_generate_stop_herdr_app(&p);
+    ASSERT(script != NULL);
+    ASSERT(strstr(script, "mux_app_json space hooked") != NULL);
+    ASSERT(strstr(script, "echo stopping") != NULL);
+    ASSERT(strstr(script, "do space.close --id \"$space_id\" --confirmed true") != NULL);
+    ASSERT(strstr(script, "server stop") == NULL);
+    free(script);
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_script_quotes_shell_sensitive_tmux_arguments(void) {
     Arena a = arena_new();
     Project p;
@@ -459,6 +556,10 @@ SUITE(script_suite) {
     RUN_TEST(test_script_herdr_reports_bad_json_without_python_traceback);
     RUN_TEST(test_script_herdr_starts_server_when_missing);
     RUN_TEST(test_script_herdr_stop_closes_matching_workspace);
+    RUN_TEST(test_script_herdr_app_maps_windows_and_splits_before_commands);
+    RUN_TEST(test_script_herdr_app_reuses_only_local_spaces);
+    RUN_TEST(test_script_herdr_app_roots_hooks_and_startup_focus);
+    RUN_TEST(test_script_herdr_app_stop_closes_named_space_without_core_restart);
     RUN_TEST(test_script_quotes_shell_sensitive_tmux_arguments);
     RUN_TEST(test_script_stop);
     RUN_TEST(test_script_stop_simple);

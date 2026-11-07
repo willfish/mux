@@ -1,8 +1,8 @@
 # mux
 
-A fast, dependency-free tmuxinator replacement for tmux and Herdr, written in C.
+A small tmuxinator replacement for tmux, the Herdr TUI, and the Herdr desktop app, written in C.
 
-[![Backends: tmux + Herdr](https://img.shields.io/badge/backends-tmux%20%2B%20Herdr-0f766e?style=for-the-badge)](#multiplexer-backends)
+[![Backends: tmux + Herdr + Herdr app](https://img.shields.io/badge/backends-tmux%20%2B%20Herdr%20%2B%20Herdr%20app-0f766e?style=for-the-badge)](#multiplexer-backends)
 [![Language: C](https://img.shields.io/badge/language-C-555?style=for-the-badge)](https://en.wikipedia.org/wiki/C_%28programming_language%29)
 
 ![mux demo](demo.gif)
@@ -10,8 +10,8 @@ A fast, dependency-free tmuxinator replacement for tmux and Herdr, written in C.
 ## Why
 
 tmuxinator requires Ruby. mux is a single binary that launches the same
-tmuxinator-style project files into either classic tmux sessions or Herdr
-workspaces.
+tmuxinator-style project files into tmux sessions, Herdr TUI workspaces, or
+Herdr desktop spaces.
 
 ### Size comparison
 
@@ -24,17 +24,23 @@ That's **~1300x smaller**. The tmuxinator closure includes Ruby, RubyGems, and a
 
 ## Multiplexer backends
 
-**One config. Two multiplexers.** mux turns tmuxinator-compatible YAML into
-repeatable terminal workspaces for both:
+**One config. Three backends.** mux turns tmuxinator-compatible YAML into
+repeatable terminal workspaces:
 
 - **tmux** - the default backend, with full tmuxinator-style session support
-- **Herdr** - a workspace/tab/pane backend for AI-agent-friendly terminal layouts
+- **herdr** - workspaces, tabs, and panes in the older Herdr terminal app
+- **herdr-app** - spaces, tabs, and panes in the Herdr desktop app, powered by `hc`
 
 ```sh
 mux start work              # tmux backend
-mux start work --backend herdr
-MUX_BACKEND=herdr mux start work
+mux start --backend herdr work
+mux start --backend herdr-app work
+MUX_BACKEND=herdr-app mux start work
 ```
+
+The desktop app and the older TUI use different runtimes. Select `herdr-app`
+for the desktop app; `herdr` does not control it. Backend selection uses
+`--backend` first, then `MUX_BACKEND`, then tmux.
 
 ## Install
 
@@ -128,14 +134,14 @@ meson test -C builddir
 ## Usage
 
 ```
-mux start <project>       Start a tmux session or Herdr workspace
-mux stop <project>        Stop a tmux session or Herdr workspace
+mux start <project>       Start a tmux session or Herdr space/workspace
+mux stop <project>        Stop a tmux session or Herdr space/workspace
 mux new <project>         Create a new project config
 mux edit <project>        Edit a project config in $EDITOR
 mux copy <src> <dst>      Copy a project config
 mux delete <project>      Delete a project config
 mux list                  List available projects
-mux debug <project>       Print generated tmux script
+mux debug <project>       Print generated backend script
 mux local                 Start from ./.tmuxinator.yml
 mux doctor                Check dependencies
 mux completions <shell>   Print shell completion script (bash/zsh/fish)
@@ -157,10 +163,12 @@ mux ls, l                 list
 ```
 -n, --name NAME           Override session name
 -p, --project-config P    Specify config file path
--b, --backend NAME        Backend to use: tmux or herdr
+-b, --backend NAME        Backend to use: tmux, herdr, or herdr-app
 -a, --append              Add windows to existing session
 -A, --active              Only list active sessions
 ```
+
+Put flags before the project name, for example `mux start --backend tmux work`.
 
 ### Template variables
 
@@ -198,13 +206,50 @@ windows:
   - logs: tail -f log/development.log
 ```
 
-### tmux and Herdr backends
+### Herdr desktop backend
+
+Open the Herdr desktop app, then run:
+
+```sh
+mux start --backend herdr-app work
+```
+
+To make it your default, set `MUX_BACKEND=herdr-app` in your shell environment
+(Fish: `set -gx MUX_BACKEND herdr-app`). Then `mux start work` loads the same
+`work.yml` without an extra flag. No separate desktop template is needed.
+
+The desktop backend maps a project to one local space, windows to named tabs,
+and panes to splits. It sends pane commands through `hc` to the new terminals'
+shells. Project and window roots, pre-commands, lifecycle hooks, and startup
+tab/pane selection are supported. Without a root, terminals start in the
+directory where you run mux.
+
+A repeat start selects the existing local space with the project's name and
+does not send its pane commands again. Remote spaces with the same name are
+left alone. If multiple local spaces have that name, mux fails rather than
+selecting or closing an arbitrary space. `mux stop work` closes the matching
+local space and ends its terminals when this backend is selected.
+
+Requirements and limits:
+
+- `herdr-app`, `hc`, and `python3` must be on `PATH`, with a Herdr app window open.
+  mux does not open the app or start the older Herdr server.
+- Layout strings select right/down splits, not exact tmux geometry or ratios.
+  The desktop CLI does not support custom pane titles or pane synchronization.
+- tmux sockets, tmux command overrides, and append mode have no desktop equivalent.
+- `list --active`, `doctor`, and `stop-all` remain tmux-specific commands.
+- `on_project_exit` runs when mux returns, not when the desktop app closes.
+
+`MUX_HERDR_APP_COMMAND` and `MUX_HC_COMMAND` can override the executable paths.
+They take one executable each, not shell command strings.
+
+### Older Herdr TUI backend
 
 mux launches tmuxinator layouts into tmux by default, and can launch the same
 layouts into Herdr workspaces:
 
 ```sh
-mux start work --backend herdr
+mux start --backend herdr work
 MUX_BACKEND=herdr mux start work
 ```
 
@@ -214,8 +259,7 @@ panes to Herdr pane splits. Pane names are applied with `herdr pane rename`,
 and pane commands are sent to the pane shell just like the tmux backend sends
 keys to tmux panes.
 
-tmux remains the default backend unless `--backend herdr` or
-`MUX_BACKEND=herdr` is set.
+tmux remains the fallback unless `--backend` or `MUX_BACKEND` selects another backend.
 Known limitations:
 
 - `python3` is required at runtime to parse Herdr's JSON CLI output.
@@ -242,13 +286,13 @@ Supported features:
 ## Shell completions
 
 ```sh
-# bash — add to ~/.bashrc
+# bash: add to ~/.bashrc
 eval "$(mux completions bash)"
 
-# zsh — add to ~/.zshrc
+# zsh: add to ~/.zshrc
 eval "$(mux completions zsh)"
 
-# fish — add to ~/.config/fish/config.fish
+# fish: add to ~/.config/fish/config.fish
 mux completions fish | source
 ```
 

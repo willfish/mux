@@ -694,3 +694,220 @@ char *script_generate_stop_herdr(const Project *p) {
     str_free(&s);
     return result;
 }
+
+static void append_herdr_app_prelude(Str *s) {
+    str_append(
+        s,
+        "#!/usr/bin/env bash\n"
+        "# shellcheck disable=SC1010,SC2016,SC2034\n"
+        "set -euo pipefail\n\n"
+        "herdr_app_cmd=${MUX_HERDR_APP_COMMAND:-herdr-app}\n"
+        "hc_cmd=${MUX_HC_COMMAND:-hc}\n"
+        "for cmd in \"$herdr_app_cmd\" python3; do\n"
+        "  if ! command -v \"$cmd\" >/dev/null 2>&1; then\n"
+        "    echo \"mux: herdr-app backend requires $cmd\" >&2\n"
+        "    exit 1\n"
+        "  fi\n"
+        "done\n"
+        "if ! app_json=$(\"$herdr_app_cmd\" ls); then\n"
+        "  echo \"mux: herdr-app backend requires an open Herdr app window\" >&2\n"
+        "  exit 1\n"
+        "fi\n\n"
+        "mux_app_json() {\n"
+        "  python3 -c 'import json, sys\n"
+        "mode, key = sys.argv[1:]\n"
+        "try:\n"
+        "    doc = json.load(sys.stdin)\n"
+        "    if mode == \"space\":\n"
+        "        matches = [s[\"id\"] for s in doc[\"spaces\"]\n"
+        "                   if not s.get(\"machine\") and s[\"name\"] == key]\n"
+        "        if len(matches) > 1:\n"
+        "            raise ValueError(\"more than one local space has that name\")\n"
+        "        value = matches[0] if matches else \"\"\n"
+        "    elif mode == \"pane\":\n"
+        "        value = next(p[\"pane\"] for s in doc[\"spaces\"]\n"
+        "                     if not s.get(\"machine\") for t in s[\"tabs\"]\n"
+        "                     for p in t[\"terminals\"] if p[\"terminal\"] == key)\n"
+        "    else:\n"
+        "        value = doc[key]\n"
+        "    if not isinstance(value, str) or (not value and mode != \"space\"):\n"
+        "        raise ValueError(\"missing identifier\")\n"
+        "    print(value)\n"
+        "except (ValueError, KeyError, TypeError, StopIteration) as exc:\n"
+        "    print(f\"mux: invalid herdr-app response for {mode} {key}: {exc}\", file=sys.stderr)\n"
+        "    sys.exit(1)\n"
+        "' \"$@\"\n"
+        "}\n\n");
+}
+
+static void append_herdr_app_capture(Str *s, const char *var, const char *key) {
+    str_appendf(s, "%s=$(printf '%%s\\n' \"$created_json\" | mux_app_json field %s)\n", var, key);
+}
+
+static void append_herdr_app_folder(Str *s, const char *root) {
+    str_append(s, " --folder ");
+    if (root && root[0]) {
+        append_shell_word(s, root);
+    } else {
+        str_append(s, "\"$PWD\"");
+    }
+}
+
+static void append_herdr_app_commands(Str *s, const Project *p, const Window *w, int wi, int pi) {
+    Str commands = str_new();
+    if (p->pre_window && p->pre_window[0]) {
+        str_appendf(&commands, "%s\n", p->pre_window);
+    }
+    if (w->pre && w->pre[0]) {
+        str_appendf(&commands, "%s\n", w->pre);
+    }
+    for (int ci = 0; ci < w->panes[pi].command_count; ci++) {
+        if (ci > 0) str_append_char(&commands, '\n');
+        str_append(&commands, w->panes[pi].commands[ci]);
+    }
+    /* The desktop CLI can inherit a split's cwd from a different focused tab. */
+    str_appendf(s, "mux_app_send \"$terminal_%d_%d\" ", wi, pi);
+    const char *root = window_root(p, w);
+    if (root && root[0]) {
+        append_shell_word(s, root);
+    } else {
+        str_append(s, "\"$PWD\"");
+    }
+    str_append_char(s, ' ');
+    append_shell_word(s, str_cstr(&commands));
+    str_append_char(s, '\n');
+    str_free(&commands);
+}
+
+char *script_generate_start_herdr_app(const Project *p) {
+    Str s = str_with_capacity(4096);
+    append_herdr_app_prelude(&s);
+    str_append(&s, "if ! command -v \"$hc_cmd\" >/dev/null 2>&1; then\n"
+                   "  echo \"mux: herdr-app backend requires $hc_cmd\" >&2\n"
+                   "  exit 1\n"
+                   "fi\n\n"
+                   "mux_app_send() {\n"
+                   "  local text\n"
+                   "  text=$(python3 -c 'import shlex, sys\n"
+                   "print(\"cd -- \" + shlex.quote(sys.argv[1]) + \"\\n\" + sys.argv[2])\n"
+                   "' \"$2\" \"$3\")\n"
+                   "  \"$hc_cmd\" send -- \"$1\" \"$text\" >/dev/null\n"
+                   "}\n\n");
+    if (p->on_project_start && p->on_project_start[0]) {
+        str_appendf(&s, "%s\n", p->on_project_start);
+    }
+    str_append(&s, "space_id=$(printf '%s\\n' \"$app_json\" | mux_app_json space ");
+    append_shell_word(&s, p->name);
+    str_append(&s, ")\n"
+                   "if [ -n \"$space_id\" ]; then\n"
+                   "  \"$herdr_app_cmd\" do space.select --id \"$space_id\" >/dev/null\n");
+    if (p->on_project_restart && p->on_project_restart[0]) {
+        str_appendf(&s, "%s\n", p->on_project_restart);
+    }
+    if (p->on_project_exit && p->on_project_exit[0]) {
+        str_appendf(&s, "  %s\n", p->on_project_exit);
+    }
+    str_append(&s, "  exit 0\nfi\n\n");
+    if (p->on_project_first_start && p->on_project_first_start[0]) {
+        str_appendf(&s, "%s\n", p->on_project_first_start);
+    }
+
+    const char *first_name = p->window_count > 0 ? p->windows[0].name : "main";
+    const char *first_root = p->window_count > 0 ? window_root(p, &p->windows[0]) : p->root;
+    str_append(&s, "created_json=$(\"$herdr_app_cmd\" do space.new --machine '' --name ");
+    append_shell_word(&s, p->name);
+    str_append(&s, " --tab ");
+    append_shell_word(&s, first_name);
+    append_herdr_app_folder(&s, first_root);
+    str_append(&s, ")\n");
+    append_herdr_app_capture(&s, "space_id", "space");
+    append_herdr_app_capture(&s, "tab_0", "tab");
+    append_herdr_app_capture(&s, "terminal_0_0", "terminal");
+    str_append(&s, "pane_0_0=$(\"$herdr_app_cmd\" ls | mux_app_json pane \"$terminal_0_0\")\n\n");
+
+    for (int wi = 0; wi < p->window_count; wi++) {
+        const Window *w = &p->windows[wi];
+        if (wi > 0) {
+            str_append(
+                &s, "created_json=$(\"$herdr_app_cmd\" do tab.new --space \"$space_id\" --name ");
+            append_shell_word(&s, w->name);
+            append_herdr_app_folder(&s, window_root(p, w));
+            str_append(&s, ")\n");
+            char var[64];
+            snprintf(var, sizeof(var), "tab_%d", wi);
+            append_herdr_app_capture(&s, var, "tab");
+            snprintf(var, sizeof(var), "terminal_%d_0", wi);
+            append_herdr_app_capture(&s, var, "terminal");
+            str_appendf(
+                &s, "pane_%d_0=$(\"$herdr_app_cmd\" ls | mux_app_json pane \"$terminal_%d_0\")\n",
+                wi, wi);
+        }
+
+        /* Split before sending commands so a pane's cd cannot change the next pane's root. */
+        for (int pi = 1; pi < w->pane_count; pi++) {
+            str_appendf(&s,
+                        "created_json=$(\"$herdr_app_cmd\" do pane.split --pane \"$pane_%d_%d\" "
+                        "--direction %s)\n",
+                        wi, pi - 1, herdr_split_direction(w));
+            char var[64];
+            snprintf(var, sizeof(var), "pane_%d_%d", wi, pi);
+            append_herdr_app_capture(&s, var, "pane");
+            snprintf(var, sizeof(var), "terminal_%d_%d", wi, pi);
+            append_herdr_app_capture(&s, var, "terminal");
+        }
+        for (int pi = 0; pi < w->pane_count; pi++) {
+            append_herdr_app_commands(&s, p, w, wi, pi);
+        }
+        int focus = focused_pane_index(w);
+        if (focus >= 0 && focus < w->pane_count) {
+            str_appendf(&s, "\"$herdr_app_cmd\" do pane.focus --pane \"$pane_%d_%d\" >/dev/null\n",
+                        wi, focus);
+        }
+        str_append_char(&s, '\n');
+    }
+
+    int startup_window = 0;
+    for (int wi = 0; p->startup_window && wi < p->window_count; wi++) {
+        if (strcmp(p->windows[wi].name, p->startup_window) == 0) {
+            startup_window = wi;
+            break;
+        }
+    }
+    int startup_pane = p->window_count > 0 ? focused_pane_index(&p->windows[startup_window]) : 0;
+    if (p->window_count > 0 && p->startup_pane >= 0 &&
+        p->startup_pane < p->windows[startup_window].pane_count) {
+        startup_pane = p->startup_pane;
+    }
+    if (startup_pane < 0 ||
+        (p->window_count > 0 && startup_pane >= p->windows[startup_window].pane_count)) {
+        startup_pane = 0;
+    }
+    str_appendf(&s, "\"$herdr_app_cmd\" do tab.select --id \"$tab_%d\" >/dev/null\n",
+                startup_window);
+    str_appendf(&s, "\"$herdr_app_cmd\" do pane.focus --pane \"$pane_%d_%d\" >/dev/null\n",
+                startup_window, startup_pane);
+    if (p->on_project_exit && p->on_project_exit[0]) {
+        str_appendf(&s, "%s\n", p->on_project_exit);
+    }
+    char *result = strdup(str_cstr(&s));
+    str_free(&s);
+    return result;
+}
+
+char *script_generate_stop_herdr_app(const Project *p) {
+    Str s = str_with_capacity(2048);
+    append_herdr_app_prelude(&s);
+    str_append(&s, "space_id=$(printf '%s\\n' \"$app_json\" | mux_app_json space ");
+    append_shell_word(&s, p->name);
+    str_append(&s, ")\n");
+    if (p->on_project_stop && p->on_project_stop[0]) {
+        str_appendf(&s, "%s\n", p->on_project_stop);
+    }
+    str_append(
+        &s, "if [ -n \"$space_id\" ]; then\n"
+            "  \"$herdr_app_cmd\" do space.close --id \"$space_id\" --confirmed true >/dev/null\n"
+            "fi\n");
+    char *result = strdup(str_cstr(&s));
+    str_free(&s);
+    return result;
+}

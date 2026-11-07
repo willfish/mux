@@ -121,18 +121,18 @@ int cli_parse(int argc, char **argv, CliArgs *args) {
 }
 
 void cli_usage(void) {
-    printf("mux %s — a fast tmuxinator replacement\n\n", MUX_VERSION);
+    printf("mux %s - a fast tmuxinator replacement\n\n", MUX_VERSION);
     printf("Usage:\n");
     printf("  mux <command> [options] [project] [key=value ...]\n\n");
     printf("Commands:\n");
-    printf("  start, s <project>       Start a tmux session\n");
-    printf("  stop <project>           Stop a tmux session\n");
+    printf("  start, s <project>       Start a session or Herdr space\n");
+    printf("  stop <project>           Stop a session or Herdr space\n");
     printf("  new, n [project]         Create a new project config\n");
     printf("  edit, e, open, o <proj>  Edit a project config\n");
     printf("  copy, cp, c <src> <dst>  Copy a project config\n");
     printf("  delete, rm, d <project>  Delete project configs\n");
     printf("  list, ls, l              List available projects\n");
-    printf("  debug <project>          Print generated tmux script\n");
+    printf("  debug <project>          Print generated backend script\n");
     printf("  local                    Start from ./.tmuxinator.yml\n");
     printf("  doctor                   Check dependencies\n");
     printf("  implode, i               Delete all configs\n");
@@ -142,10 +142,11 @@ void cli_usage(void) {
     printf("  help, h                  Show this help\n");
     printf("\nOptions:\n");
     printf("  -a, --append             Add windows to existing session\n");
-    printf("  -b, --backend NAME       Backend to use: tmux or herdr (experimental)\n");
+    printf("  -b, --backend NAME       Backend: tmux, herdr, or herdr-app\n");
     printf("  -n, --name NAME          Override session name\n");
     printf("  -p, --project-config P   Specify config file path\n");
     printf("  -A, --active             Only list active sessions (for list)\n");
+    printf("  Put options before the project name. MUX_BACKEND sets the default.\n");
     printf("\nShortcut:\n");
     printf("  mux <project>            Same as mux start <project>\n");
 }
