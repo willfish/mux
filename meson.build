@@ -12,6 +12,7 @@ add_project_arguments(
 libyaml = dependency('yaml-0.1')
 
 common_src = files(
+  'src/app.c',
   'src/cli.c',
   'src/config.c',
   'src/project.c',
@@ -26,7 +27,7 @@ common_src = files(
   'src/tmux.c',
 )
 
-executable('mux', files('src/main.c') + common_src, dependencies: [libyaml], install: true)
+mux_exe = executable('mux', files('src/main.c') + common_src, dependencies: [libyaml], install: true)
 
 mux_lib = static_library('mux_lib', common_src, dependencies: [libyaml])
 
@@ -47,6 +48,7 @@ test_names = [
   'test_cli',
   'test_template',
   'test_tmux',
+  'test_app',
   'test_script_regressions',
 ]
 
@@ -58,3 +60,19 @@ foreach t : test_names
       include_directories: include_directories('src')),
     workdir: meson.project_source_root())
 endforeach
+
+bash_prog = find_program('bash', required: false)
+if bash_prog.found()
+  test('test_integration_basic',
+    bash_prog,
+    args: [meson.project_source_root() / 'tests/integration/test_basic.sh'],
+    env: {'MUX': mux_exe.full_path()},
+    depends: mux_exe,
+    workdir: meson.project_source_root())
+  test('test_integration_backends',
+    bash_prog,
+    args: [meson.project_source_root() / 'tests/integration/test_backends.sh'],
+    env: {'MUX': mux_exe.full_path()},
+    depends: mux_exe,
+    workdir: meson.project_source_root())
+endif

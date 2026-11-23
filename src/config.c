@@ -1,8 +1,13 @@
 #include "config.h"
 
+#include <ctype.h>
+#include <errno.h>
+#include <limits.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <strings.h>
+#include <sys/stat.h>
 #include <yaml.h>
 
 #include "str.h"
@@ -21,9 +26,56 @@ static const char *config_canonical_key(const char *key) {
     return key;
 }
 
-/* Join a YAML sequence of strings with "; " */
-static char *join_yaml_sequence(Arena *a, yaml_document_t *doc, yaml_node_t *node) {
+static int is_yaml_null(const yaml_node_t *node) {
+    if (!node || node->type != YAML_SCALAR_NODE) return 0;
+    const char *val = (const char *)node->data.scalar.value;
+    if (!val || val[0] == '\0') return 1;
+    if (node->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+        if (strcmp(val, "~") == 0 || strcmp(val, "null") == 0 || strcmp(val, "Null") == 0 ||
+            strcmp(val, "NULL") == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+/* Parse YAML 1.1 boolean values (case-insensitive). Returns 1 if recognised, 0 otherwise. */
+static int try_parse_yaml_bool(const yaml_node_t *node, bool *out) {
+    if (!node || node->type != YAML_SCALAR_NODE) return 0;
+    const char *sv = (const char *)node->data.scalar.value;
+    if (!sv) return 0;
+    if (strcasecmp(sv, "true") == 0 || strcasecmp(sv, "yes") == 0 || strcasecmp(sv, "on") == 0 ||
+        strcmp(sv, "1") == 0) {
+        *out = true;
+        return 1;
+    }
+    if (strcasecmp(sv, "false") == 0 || strcasecmp(sv, "no") == 0 || strcasecmp(sv, "off") == 0 ||
+        strcmp(sv, "0") == 0) {
+        *out = false;
+        return 1;
+    }
+    return 0;
+}
+
+static int parse_nonnegative_int(const char *sv, int *out) {
+    if (!sv || !sv[0]) return 0;
+    while (isspace((unsigned char)*sv)) sv++;
+    if (*sv < '0' || *sv > '9') return 0;
+    errno = 0;
+    char *end = NULL;
+    long val = strtol(sv, &end, 10);
+    if (errno != 0 || end == sv) return 0;
+    while (*end && isspace((unsigned char)*end)) end++;
+    if (*end != '\0' || val < 0 || val > INT_MAX) return 0;
+    *out = (int)val;
+    return 1;
+}
+
+/* Join a YAML scalar or sequence of strings with sep, skipping null/empty entries. */
+static char *join_yaml_sequence(Arena *a, yaml_document_t *doc, yaml_node_t *node,
+                                const char *sep) {
     if (node->type == YAML_SCALAR_NODE) {
+        if (is_yaml_null(node)) return NULL;
         return arena_strdup(a, (const char *)node->data.scalar.value);
     }
     if (node->type != YAML_SEQUENCE_NODE) return NULL;
@@ -33,11 +85,15 @@ static char *join_yaml_sequence(Arena *a, yaml_document_t *doc, yaml_node_t *nod
     for (yaml_node_item_t *item = node->data.sequence.items.start;
          item < node->data.sequence.items.top; item++) {
         yaml_node_t *val = yaml_document_get_node(doc, *item);
-        if (val && val->type == YAML_SCALAR_NODE) {
-            if (!first) str_append(&buf, "; ");
+        if (val && val->type == YAML_SCALAR_NODE && !is_yaml_null(val)) {
+            if (!first) str_append(&buf, sep);
             str_append(&buf, (const char *)val->data.scalar.value);
             first = 0;
         }
+    }
+    if (first) {
+        str_free(&buf);
+        return NULL;
     }
     char *result = arena_strdup(a, str_cstr(&buf));
     str_free(&buf);
@@ -49,8 +105,8 @@ static char **collect_commands(Arena *a, yaml_document_t *doc, yaml_node_t *node
     *count = 0;
 
     if (node->type == YAML_SCALAR_NODE) {
+        if (is_yaml_null(node)) return NULL;
         const char *val = (const char *)node->data.scalar.value;
-        if (val[0] == '\0') return NULL;
         char **cmds = arena_alloc(a, sizeof(char *) * 2);
         cmds[0] = arena_strdup(a, val);
         cmds[1] = NULL;
@@ -68,11 +124,8 @@ static char **collect_commands(Arena *a, yaml_document_t *doc, yaml_node_t *node
     for (yaml_node_item_t *item = node->data.sequence.items.start;
          item < node->data.sequence.items.top; item++) {
         yaml_node_t *val = yaml_document_get_node(doc, *item);
-        if (val && val->type == YAML_SCALAR_NODE) {
-            const char *sv = (const char *)val->data.scalar.value;
-            if (sv[0] != '\0') {
-                cmds[idx++] = arena_strdup(a, sv);
-            }
+        if (val && val->type == YAML_SCALAR_NODE && !is_yaml_null(val)) {
+            cmds[idx++] = arena_strdup(a, (const char *)val->data.scalar.value);
         }
     }
     cmds[idx] = NULL;
@@ -85,8 +138,8 @@ static int parse_pane(Arena *a, yaml_document_t *doc, yaml_node_t *node, Pane *p
 
     if (node->type == YAML_SCALAR_NODE) {
         /* Simple pane: just a command string (or null for empty pane) */
-        const char *val = (const char *)node->data.scalar.value;
-        if (val[0] != '\0' && strcmp(val, "~") != 0) {
+        if (!is_yaml_null(node)) {
+            const char *val = (const char *)node->data.scalar.value;
             pane->commands = arena_alloc(a, sizeof(char *) * 2);
             pane->commands[0] = arena_strdup(a, val);
             pane->commands[1] = NULL;
@@ -110,10 +163,12 @@ static int parse_pane(Arena *a, yaml_document_t *doc, yaml_node_t *node, Pane *p
             if (!key || !val) continue;
             if (key->type != YAML_SCALAR_NODE) continue;
 
-            pane->title = arena_strdup(a, (const char *)key->data.scalar.value);
+            if (!is_yaml_null(key)) {
+                pane->title = arena_strdup(a, (const char *)key->data.scalar.value);
+            }
             if (val->type == YAML_SCALAR_NODE) {
-                const char *sv = (const char *)val->data.scalar.value;
-                if (sv[0] != '\0') {
+                if (!is_yaml_null(val)) {
+                    const char *sv = (const char *)val->data.scalar.value;
                     pane->commands = arena_alloc(a, sizeof(char *) * 2);
                     pane->commands[0] = arena_strdup(a, sv);
                     pane->commands[1] = NULL;
@@ -135,7 +190,7 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
 
     if (node->type != YAML_MAPPING_NODE) return -1;
 
-    /* Each window is a mapping with a single key (window name) → mapping or scalar */
+    /* Each window is a mapping with a single key (window name) -> mapping or scalar */
     for (yaml_node_pair_t *pair = node->data.mapping.pairs.start;
          pair < node->data.mapping.pairs.top; pair++) {
         yaml_node_t *key = yaml_document_get_node(doc, pair->key);
@@ -143,15 +198,17 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
         if (!key || !val) continue;
         if (key->type != YAML_SCALAR_NODE) continue;
 
-        win->name = arena_strdup(a, (const char *)key->data.scalar.value);
+        if (!is_yaml_null(key)) {
+            win->name = arena_strdup(a, (const char *)key->data.scalar.value);
+        }
 
         if (val->type == YAML_SCALAR_NODE) {
             /* Single command window: "- server: bundle exec rails s" */
-            const char *sv = (const char *)val->data.scalar.value;
             win->panes = arena_alloc(a, sizeof(Pane));
             memset(win->panes, 0, sizeof(Pane));
             win->pane_count = 1;
-            if (sv[0] != '\0') {
+            if (!is_yaml_null(val)) {
+                const char *sv = (const char *)val->data.scalar.value;
                 win->panes[0].commands = arena_alloc(a, sizeof(char *) * 2);
                 win->panes[0].commands[0] = arena_strdup(a, sv);
                 win->panes[0].commands[1] = NULL;
@@ -173,23 +230,26 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
 
                 const char *wkey = (const char *)wk->data.scalar.value;
 
-                if (strcmp(wkey, "layout") == 0 && wv->type == YAML_SCALAR_NODE) {
+                if (strcmp(wkey, "layout") == 0 && wv->type == YAML_SCALAR_NODE &&
+                    !is_yaml_null(wv)) {
                     win->layout = arena_strdup(a, (const char *)wv->data.scalar.value);
-                } else if (strcmp(wkey, "root") == 0 && wv->type == YAML_SCALAR_NODE) {
+                } else if (strcmp(wkey, "root") == 0 && wv->type == YAML_SCALAR_NODE &&
+                           !is_yaml_null(wv)) {
                     win->root = arena_strdup(a, (const char *)wv->data.scalar.value);
-                } else if (strcmp(wkey, "focused_pane") == 0 && wv->type == YAML_SCALAR_NODE) {
+                } else if (strcmp(wkey, "focused_pane") == 0 && wv->type == YAML_SCALAR_NODE &&
+                           !is_yaml_null(wv)) {
                     win->focused_pane = arena_strdup(a, (const char *)wv->data.scalar.value);
                 } else if (strcmp(wkey, "pre") == 0) {
-                    win->pre = join_yaml_sequence(a, doc, wv);
-                } else if (strcmp(wkey, "synchronize") == 0 && wv->type == YAML_SCALAR_NODE) {
-                    const char *sv = (const char *)wv->data.scalar.value;
-                    /* Handle boolean true/false as "before" for compat */
-                    if (strcmp(sv, "true") == 0) {
-                        win->synchronize = arena_strdup(a, "before");
-                    } else if (strcmp(sv, "false") == 0) {
-                        /* no sync */
+                    win->pre = join_yaml_sequence(a, doc, wv, " && ");
+                } else if (strcmp(wkey, "synchronize") == 0 && wv->type == YAML_SCALAR_NODE &&
+                           !is_yaml_null(wv)) {
+                    bool sync_bool = false;
+                    if (try_parse_yaml_bool(wv, &sync_bool)) {
+                        if (sync_bool) {
+                            win->synchronize = arena_strdup(a, "before");
+                        }
                     } else {
-                        win->synchronize = arena_strdup(a, sv);
+                        win->synchronize = arena_strdup(a, (const char *)wv->data.scalar.value);
                     }
                 } else if (strcmp(wkey, "panes") == 0 && wv->type == YAML_SEQUENCE_NODE) {
                     int n = (int)(wv->data.sequence.items.top - wv->data.sequence.items.start);
@@ -219,7 +279,7 @@ static int parse_window(Arena *a, yaml_document_t *doc, yaml_node_t *node, Windo
     return 0;
 }
 
-static int parse_document(Arena *a, yaml_document_t *doc, Project *p) {
+static int parse_document(Arena *a, yaml_document_t *doc, Project *p, const char *override_name) {
     yaml_node_t *root = yaml_document_get_root_node(doc);
     if (!root || root->type != YAML_MAPPING_NODE) {
         fprintf(stderr, "mux: config root is not a mapping\n");
@@ -236,44 +296,65 @@ static int parse_document(Arena *a, yaml_document_t *doc, Project *p) {
         const char *k = config_canonical_key(raw_key);
         if (!k) continue; /* ignored/deprecated */
 
-        if (strcmp(k, "name") == 0 && val->type == YAML_SCALAR_NODE) {
+        if (strcmp(k, "name") == 0 && val->type == YAML_SCALAR_NODE && !is_yaml_null(val)) {
             p->name = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "root") == 0 && val->type == YAML_SCALAR_NODE) {
+        } else if (strcmp(k, "root") == 0 && val->type == YAML_SCALAR_NODE && !is_yaml_null(val)) {
             p->root = arena_strdup(a, (const char *)val->data.scalar.value);
         } else if (strcmp(k, "pre_window") == 0) {
-            p->pre_window = join_yaml_sequence(a, doc, val);
-        } else if (strcmp(k, "tmux_command") == 0 && val->type == YAML_SCALAR_NODE) {
+            p->pre_window = join_yaml_sequence(a, doc, val, " && ");
+        } else if (strcmp(k, "tmux_command") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->tmux_command = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "tmux_options") == 0 && val->type == YAML_SCALAR_NODE) {
+        } else if (strcmp(k, "tmux_options") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->tmux_options = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "socket_name") == 0 && val->type == YAML_SCALAR_NODE) {
+        } else if (strcmp(k, "socket_name") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->socket_name = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "socket_path") == 0 && val->type == YAML_SCALAR_NODE) {
+        } else if (strcmp(k, "socket_path") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->socket_path = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "startup_window") == 0 && val->type == YAML_SCALAR_NODE) {
+        } else if (strcmp(k, "startup_window") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->startup_window = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "startup_pane") == 0 && val->type == YAML_SCALAR_NODE) {
-            p->startup_pane = atoi((const char *)val->data.scalar.value);
+        } else if (strcmp(k, "startup_pane") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
+            int sp = -1;
+            if (parse_nonnegative_int((const char *)val->data.scalar.value, &sp)) {
+                p->startup_pane = sp;
+            } else if (((const char *)val->data.scalar.value)[0] != '\0') {
+                /* Present but not a valid index (e.g. -1). Keep it distinct from
+                 * the "unspecified" default (-1) so focus falls to pane 0,
+                 * not to focused_pane. Mirrors MUX_STARTUP_PANE_INVALID in
+                 * src/script.c. */
+                p->startup_pane = -2;
+            }
         } else if (strcmp(k, "attach") == 0 && val->type == YAML_SCALAR_NODE) {
-            const char *sv = (const char *)val->data.scalar.value;
-            p->attach = !(strcmp(sv, "false") == 0 || strcmp(sv, "0") == 0);
+            bool attach_val = true;
+            if (try_parse_yaml_bool(val, &attach_val)) {
+                p->attach = attach_val;
+            }
         } else if (strcmp(k, "enable_pane_titles") == 0 && val->type == YAML_SCALAR_NODE) {
-            const char *sv = (const char *)val->data.scalar.value;
-            p->enable_pane_titles = (strcmp(sv, "true") == 0 || strcmp(sv, "1") == 0);
-        } else if (strcmp(k, "pane_title_format") == 0 && val->type == YAML_SCALAR_NODE) {
+            bool titles_val = false;
+            if (try_parse_yaml_bool(val, &titles_val)) {
+                p->enable_pane_titles = titles_val;
+            }
+        } else if (strcmp(k, "pane_title_format") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->pane_title_format = arena_strdup(a, (const char *)val->data.scalar.value);
-        } else if (strcmp(k, "pane_title_position") == 0 && val->type == YAML_SCALAR_NODE) {
+        } else if (strcmp(k, "pane_title_position") == 0 && val->type == YAML_SCALAR_NODE &&
+                   !is_yaml_null(val)) {
             p->pane_title_position = arena_strdup(a, (const char *)val->data.scalar.value);
         } else if (strcmp(k, "on_project_start") == 0) {
-            p->on_project_start = join_yaml_sequence(a, doc, val);
+            p->on_project_start = join_yaml_sequence(a, doc, val, "\n");
         } else if (strcmp(k, "on_project_first_start") == 0) {
-            p->on_project_first_start = join_yaml_sequence(a, doc, val);
+            p->on_project_first_start = join_yaml_sequence(a, doc, val, "\n");
         } else if (strcmp(k, "on_project_restart") == 0) {
-            p->on_project_restart = join_yaml_sequence(a, doc, val);
+            p->on_project_restart = join_yaml_sequence(a, doc, val, "\n");
         } else if (strcmp(k, "on_project_exit") == 0) {
-            p->on_project_exit = join_yaml_sequence(a, doc, val);
+            p->on_project_exit = join_yaml_sequence(a, doc, val, "\n");
         } else if (strcmp(k, "on_project_stop") == 0) {
-            p->on_project_stop = join_yaml_sequence(a, doc, val);
+            p->on_project_stop = join_yaml_sequence(a, doc, val, "\n");
         } else if (strcmp(k, "windows") == 0 && val->type == YAML_SEQUENCE_NODE) {
             int n = (int)(val->data.sequence.items.top - val->data.sequence.items.start);
             if (n > 0) {
@@ -291,20 +372,35 @@ static int parse_document(Arena *a, yaml_document_t *doc, Project *p) {
         }
     }
 
+    if (override_name && override_name[0]) {
+        p->name = arena_strdup(a, override_name);
+    }
+
+    if (!p->name || !p->name[0]) {
+        fprintf(stderr, "mux: config is missing required 'name' field\n");
+        return -1;
+    }
+
+    if (p->window_count <= 0) {
+        fprintf(stderr, "mux: config must define at least one window\n");
+        return -1;
+    }
+
     return 0;
 }
 
-int config_parse_string(Arena *a, const char *yaml, size_t yaml_len, Project *p,
-                        const char **settings, int setting_count) {
+int config_parse_string_ex(Arena *a, const char *yaml, size_t yaml_len, Project *p,
+                           const char **settings, int setting_count, const char **args,
+                           int arg_count, const char *override_name) {
     project_init(p);
-
-    /* Template substitution pass */
-    char *processed = NULL;
-    if (settings && setting_count > 0) {
-        processed = template_substitute(a, yaml, settings, setting_count);
-    } else {
-        processed = arena_strndup(a, yaml, yaml_len);
+    if (!yaml) {
+        fprintf(stderr, "mux: empty config\n");
+        return -1;
     }
+
+    /* Always run template pass so unset @settings, ENV, and @args are resolved */
+    char *processed =
+        template_substitute_ex(a, yaml, yaml_len, settings, setting_count, args, arg_count);
     size_t processed_len = strlen(processed);
 
     yaml_parser_t parser;
@@ -324,7 +420,7 @@ int config_parse_string(Arena *a, const char *yaml, size_t yaml_len, Project *p,
         return -1;
     }
 
-    int result = parse_document(a, &doc, p);
+    int result = parse_document(a, &doc, p, override_name);
 
     yaml_document_delete(&doc);
     yaml_parser_delete(&parser);
@@ -332,8 +428,14 @@ int config_parse_string(Arena *a, const char *yaml, size_t yaml_len, Project *p,
     return result;
 }
 
-int config_parse(Arena *a, const char *filepath, Project *p, const char **settings,
-                 int setting_count) {
+int config_parse_string(Arena *a, const char *yaml, size_t yaml_len, Project *p,
+                        const char **settings, int setting_count) {
+    return config_parse_string_ex(a, yaml, yaml_len, p, settings, setting_count, NULL, 0, NULL);
+}
+
+int config_parse_ex(Arena *a, const char *filepath, Project *p, const char **settings,
+                    int setting_count, const char **args, int arg_count,
+                    const char *override_name) {
     FILE *f = fopen(filepath, "r");
     if (!f) {
         fprintf(stderr, "mux: cannot open %s: ", filepath);
@@ -341,20 +443,58 @@ int config_parse(Arena *a, const char *filepath, Project *p, const char **settin
         return -1;
     }
 
-    fseek(f, 0, SEEK_END);
-    long fsize = ftell(f);
-    fseek(f, 0, SEEK_SET);
-
-    if (fsize < 0) {
-        fprintf(stderr, "mux: cannot read %s\n", filepath);
+    struct stat st;
+    if (fstat(fileno(f), &st) != 0) {
+        fprintf(stderr, "mux: cannot stat %s: ", filepath);
+        perror(NULL);
         fclose(f);
         return -1;
     }
 
-    char *content = arena_alloc(a, (size_t)fsize + 1);
-    size_t nread = fread(content, 1, (size_t)fsize, f);
-    fclose(f);
-    content[nread] = '\0';
+    if (S_ISDIR(st.st_mode)) {
+        fprintf(stderr, "mux: cannot read %s: is a directory\n", filepath);
+        fclose(f);
+        return -1;
+    }
 
-    return config_parse_string(a, content, nread, p, settings, setting_count);
+    char *content = NULL;
+    size_t nread = 0;
+
+    if (S_ISREG(st.st_mode)) {
+        size_t fsize = (size_t)st.st_size;
+        content = arena_alloc(a, fsize + 1);
+        nread = fread(content, 1, fsize, f);
+        if (ferror(f)) {
+            fprintf(stderr, "mux: error reading %s\n", filepath);
+            fclose(f);
+            return -1;
+        }
+        content[nread] = '\0';
+    } else {
+        Str buf = str_new();
+        char chunk[4096];
+        size_t r;
+        while ((r = fread(chunk, 1, sizeof(chunk), f)) > 0) {
+            str_appendn(&buf, chunk, r);
+        }
+        if (ferror(f)) {
+            fprintf(stderr, "mux: error reading %s\n", filepath);
+            str_free(&buf);
+            fclose(f);
+            return -1;
+        }
+        nread = buf.len;
+        content = arena_strndup(a, str_cstr(&buf), nread);
+        str_free(&buf);
+    }
+
+    fclose(f);
+
+    return config_parse_string_ex(a, content, nread, p, settings, setting_count, args, arg_count,
+                                  override_name);
+}
+
+int config_parse(Arena *a, const char *filepath, Project *p, const char **settings,
+                 int setting_count) {
+    return config_parse_ex(a, filepath, p, settings, setting_count, NULL, 0, NULL);
 }

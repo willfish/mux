@@ -3,7 +3,8 @@
 
 #include <stdbool.h>
 
-#define MUX_VERSION "0.1.0"
+#define MUX_VERSION "0.2.0"
+#define CLI_MAX_EXTRA_ARGS 128
 
 typedef enum {
     CMD_NONE = 0,
@@ -34,8 +35,16 @@ typedef struct {
     const char *completion_shell; /* bash, zsh, or fish */
     bool append;                  /* --append flag */
     bool active_only;             /* --active flag for list */
+    int attach_override;          /* -1 = config default, 0 = --no-attach, 1 = --attach */
+    bool no_pre_window;           /* --no-pre-window flag */
+    bool local_flag;              /* --local flag for new */
 
-    /* Template settings: key=value pairs from extra args */
+    /* Delete targets (multiple project names for delete) */
+    const char *delete_targets[CLI_MAX_EXTRA_ARGS];
+    int delete_count;
+
+    /* Extra positional args / template settings (key=value pairs or @args) */
+    const char *settings_storage[CLI_MAX_EXTRA_ARGS];
     const char **settings;
     int setting_count;
 } CliArgs;
