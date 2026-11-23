@@ -164,18 +164,22 @@ mux ls, l                 list
 -n, --name NAME           Override session name
 -p, --project-config P    Specify config file path
 -b, --backend NAME        Backend to use: tmux, herdr, or herdr-app
--a, --append              Add windows to existing session
+-a, --append              Add windows to existing tmux session
 -A, --active              Only list active sessions
+    --attach              Force attach on start
+    --no-attach           Start detached
+    --no-pre-window       Skip project pre_window commands
+    --local               Create ./.tmuxinator.yml (for new)
 ```
 
-Put flags before the project name, for example `mux start --backend tmux work`.
+Flags may be passed before or after the project name, for example `mux start work --backend tmux`.
 
 ### Template variables
 
-Configs can use `<%= @settings["key"] %>` placeholders, filled from CLI args:
+Configs can use `<%= @settings["key"] %>` (or single-quoted `@settings['key']`), `<%= @args[0] %>`, and `<%= ENV["VAR"] %>` placeholders, filled from CLI args and environment variables:
 
 ```sh
-mux start myproject host=localhost port=3000
+mux start myproject host=localhost port=3000 main
 ```
 
 ## Configuration

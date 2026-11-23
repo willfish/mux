@@ -1,38 +1,57 @@
 set -euo pipefail
-tmux start-server
-pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
-base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
-case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
+mux_errors=0
+mux_try() {
+"$@" || {
+mux_errors=$((mux_errors + 1))
+printf 'mux: tmux command failed: %s\n' "$*" >&2
+}
+}
+mux_abort() {
+printf 'mux: %s\n' "$*" >&2
+exit 1
+}
+tmux start-server 2>/dev/null || true
+cd ~/test
+if ! tmux has-session -t =focused_pane 2>/dev/null; then
+mux_new_session() {
+tmux new-session -d -P -F '#{window_index} #{pane_index}' -s focused_pane -x "${MUX_TMUX_COLUMNS:-120}" -y "${MUX_TMUX_LINES:-40}" -n editor -c ~/test
+}
+if ! mux_session_info=$(mux_new_session 2>/dev/null) &&
+! { sleep 0.2; mux_session_info=$(mux_new_session); }; then
+mux_abort 'failed to create tmux session '\''focused_pane'\'''
+fi
+read -r base_index pane_base_index <<< "$mux_session_info"
 case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
-if ! tmux has-session -t focused_pane 2>/dev/null; then
-tmux new-session -d -s focused_pane -x "${MUX_TMUX_COLUMNS:-120}" -y "${MUX_TMUX_LINES:-40}" -n editor -c ~/test
-pane_base_index=$(tmux show-option -gv pane-base-index 2>/dev/null || echo 0)
-base_index=$(tmux show-option -gv base-index 2>/dev/null || echo 0)
 case "$pane_base_index" in ''|*[!0-9]*) pane_base_index=0;; esac
-case "$base_index" in ''|*[!0-9]*) base_index=0;; esac
-tmux select-pane -t focused_pane:editor.$((pane_base_index+0)) -T "editor"
-tmux send-keys -t focused_pane:editor.$((pane_base_index+0)) "vim" C-m
-tmux splitw -t focused_pane:editor -c ~/test
-tmux select-layout -t focused_pane:editor tiled
-tmux select-pane -t focused_pane:editor.$((pane_base_index+1)) -T "shell"
-tmux send-keys -t focused_pane:editor.$((pane_base_index+1)) "bash" C-m
-tmux splitw -t focused_pane:editor -c ~/test
-tmux select-layout -t focused_pane:editor tiled
-tmux select-pane -t focused_pane:editor.$((pane_base_index+2)) -T "logs"
-tmux send-keys -t focused_pane:editor.$((pane_base_index+2)) "tail -f log/development.log" C-m
-tmux select-layout -t focused_pane:editor main-vertical
-tmux select-pane -t focused_pane:editor.$((pane_base_index+1))
-tmux new-window -t focused_pane -n server -c ~/test
-tmux send-keys -t focused_pane:server.$((pane_base_index+0)) "bundle exec rails s" C-m
-tmux splitw -t focused_pane:server -c ~/test
-tmux select-layout -t focused_pane:server tiled
-tmux send-keys -t focused_pane:server.$((pane_base_index+1)) "tail -f log/server.log" C-m
-tmux select-pane -t focused_pane:server.$((pane_base_index+0))
-tmux set-option -g pane-border-status top
-tmux select-window -t focused_pane:editor
+mux_try tmux set-window-option -t =focused_pane:$((base_index+0)) pane-border-status top
+mux_try tmux set-window-option -t =focused_pane:$((base_index+0)) pane-border-format '#{pane_index}: #{pane_title}'
+mux_try tmux select-pane -t =focused_pane:$((base_index+0)).$((pane_base_index+0)) -T "editor"
+mux_try tmux send-keys -t =focused_pane:$((base_index+0)).$((pane_base_index+0)) "vim" C-m
+mux_try tmux splitw -t =focused_pane:$((base_index+0)) -c ~/test
+mux_try tmux select-layout -t =focused_pane:$((base_index+0)) tiled
+mux_try tmux select-pane -t =focused_pane:$((base_index+0)).$((pane_base_index+1)) -T "shell"
+mux_try tmux send-keys -t =focused_pane:$((base_index+0)).$((pane_base_index+1)) "bash" C-m
+mux_try tmux splitw -t =focused_pane:$((base_index+0)) -c ~/test
+mux_try tmux select-layout -t =focused_pane:$((base_index+0)) tiled
+mux_try tmux select-pane -t =focused_pane:$((base_index+0)).$((pane_base_index+2)) -T "logs"
+mux_try tmux send-keys -t =focused_pane:$((base_index+0)).$((pane_base_index+2)) "tail -f log/development.log" C-m
+mux_try tmux select-layout -t =focused_pane:$((base_index+0)) main-vertical
+mux_try tmux select-pane -t =focused_pane:$((base_index+0)).$((pane_base_index+1))
+mux_try tmux new-window -t =focused_pane -n server -c ~/test
+mux_try tmux set-window-option -t =focused_pane:$((base_index+1)) pane-border-status top
+mux_try tmux set-window-option -t =focused_pane:$((base_index+1)) pane-border-format '#{pane_index}: #{pane_title}'
+mux_try tmux send-keys -t =focused_pane:$((base_index+1)).$((pane_base_index+0)) "bundle exec rails s" C-m
+mux_try tmux splitw -t =focused_pane:$((base_index+1)) -c ~/test
+mux_try tmux select-layout -t =focused_pane:$((base_index+1)) tiled
+mux_try tmux send-keys -t =focused_pane:$((base_index+1)).$((pane_base_index+1)) "tail -f log/server.log" C-m
+mux_try tmux select-pane -t =focused_pane:$((base_index+1)).$((pane_base_index+0))
+mux_try tmux select-window -t =focused_pane:$((base_index+0))
 fi
 if [ -z "${TMUX:-}" ]; then
-tmux -u attach-session -t focused_pane
+exec tmux -u attach-session -t =focused_pane
 else
-tmux -u switch-client -t focused_pane
+exec tmux -u switch-client -t =focused_pane
+fi
+if [ "$mux_errors" -gt 0 ]; then
+mux_abort "$mux_errors tmux command(s) failed while building the session"
 fi

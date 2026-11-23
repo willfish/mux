@@ -78,6 +78,26 @@ TEST test_arena_reset(void) {
     PASS();
 }
 
+TEST test_arena_reset_multiblock_no_leak(void) {
+    Arena a = arena_new();
+    /* Force allocation across multiple blocks */
+    void *b1 = arena_alloc(&a, ARENA_BLOCK_SIZE - 16);
+    void *b2 = arena_alloc(&a, ARENA_BLOCK_SIZE - 16);
+    void *b3 = arena_alloc(&a, ARENA_BLOCK_SIZE * 2);
+    ASSERT(b1 != NULL && b2 != NULL && b3 != NULL);
+
+    /* Reset and reallocate across multiple blocks again; Valgrind verifies zero leaks */
+    arena_reset(&a);
+    void *r1 = arena_alloc(&a, ARENA_BLOCK_SIZE - 16);
+    void *r2 = arena_alloc(&a, ARENA_BLOCK_SIZE - 16);
+    void *r3 = arena_alloc(&a, ARENA_BLOCK_SIZE * 2);
+    void *r4 = arena_alloc(&a, ARENA_BLOCK_SIZE * 3);
+    ASSERT(r1 != NULL && r2 != NULL && r3 != NULL && r4 != NULL);
+
+    arena_free(&a);
+    PASS();
+}
+
 TEST test_arena_many_allocs(void) {
     Arena a = arena_new();
     for (int i = 0; i < 10000; i++) {
@@ -96,6 +116,7 @@ SUITE(arena_suite) {
     RUN_TEST(test_arena_alignment);
     RUN_TEST(test_arena_large_alloc);
     RUN_TEST(test_arena_reset);
+    RUN_TEST(test_arena_reset_multiblock_no_leak);
     RUN_TEST(test_arena_many_allocs);
 }
 

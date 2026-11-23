@@ -136,6 +136,19 @@ TEST test_path_expand_null(void) {
     PASS();
 }
 
+TEST test_shell_exec_status_codes(void) {
+    ASSERT_EQ(0, shell_exec("true"));
+    ASSERT_EQ(1, shell_exec("false"));
+    ASSERT_EQ(7, shell_exec("exit 7"));
+    PASS();
+}
+
+TEST test_shell_exec_bash_executes_bash_syntax(void) {
+    ASSERT_EQ(0, shell_exec_bash("[[ 'abc' == a* ]] && printf -v out '%q' 'hello world'"));
+    ASSERT_EQ(42, shell_exec_bash("exit 42"));
+    PASS();
+}
+
 SUITE(shell_suite) {
     RUN_TEST(test_shell_source_does_not_hardcode_bin_bash);
     RUN_TEST(test_shell_escape_simple);
@@ -151,6 +164,8 @@ SUITE(shell_suite) {
     RUN_TEST(test_path_expand_tilde_only);
     RUN_TEST(test_path_expand_no_tilde);
     RUN_TEST(test_path_expand_null);
+    RUN_TEST(test_shell_exec_status_codes);
+    RUN_TEST(test_shell_exec_bash_executes_bash_syntax);
 }
 
 GREATEST_MAIN_DEFS();

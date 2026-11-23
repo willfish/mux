@@ -1,5 +1,6 @@
 #include "arena.h"
 
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -26,12 +27,25 @@ Arena arena_new(void) {
 
 void *arena_alloc(Arena *a, size_t size) {
     /* Align to 8 bytes */
+    if (size > SIZE_MAX - 7) {
+        fprintf(stderr, "mux: out of memory\n");
+        exit(1);
+    }
     size = (size + 7) & ~(size_t)7;
 
-    if (a->current->used + size > a->current->size) {
-        ArenaBlock *b = arena_block_new(size);
-        a->current->next = b;
-        a->current = b;
+    if (size > a->current->size - a->current->used) {
+        ArenaBlock *b = a->current->next;
+        while (b && b->size < size) {
+            b = b->next;
+        }
+        if (b) {
+            a->current = b;
+        } else {
+            b = arena_block_new(size);
+            b->next = a->current->next;
+            a->current->next = b;
+            a->current = b;
+        }
     }
     void *ptr = a->current->data + a->current->used;
     a->current->used += size;

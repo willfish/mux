@@ -2,6 +2,8 @@
 #include "greatest.h"
 #include "template.h"
 
+#include <stdlib.h>
+
 TEST test_template_no_tags(void) {
     Arena a = arena_new();
     const char *settings[] = {"foo", "bar"};
@@ -105,6 +107,46 @@ TEST test_template_parse_setting_invalid(void) {
     PASS();
 }
 
+TEST test_template_single_quotes_and_tabs(void) {
+    Arena a = arena_new();
+    const char *settings[] = {"dir", "/srv/app"};
+    char *r = template_substitute(&a, "root: <%=\t@settings['dir']\t%>", settings, 2);
+    ASSERT_STR_EQ("root: /srv/app", r);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_template_unset_setting_with_no_cli_args(void) {
+    Arena a = arena_new();
+    char *r = template_substitute(&a, "prefix:<%= @settings[\"missing\"] %>:suffix", NULL, 0);
+    ASSERT_STR_EQ("prefix::suffix", r);
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_template_env_and_args(void) {
+    Arena a = arena_new();
+    setenv("MUX_TEST_ENV_VAR", "from_env", 1);
+    const char *args[] = {"first", "second"};
+    const char *tpl = "<%= ENV[\"MUX_TEST_ENV_VAR\"] %>|<%= ENV['MUX_TEST_ENV_VAR'] %>|"
+                      "<%= @args[0] %>|<%= @args[1] %>|<%= @args[2] %>";
+    char *r = template_substitute_ex(&a, tpl, strlen(tpl), NULL, 0, args, 2);
+    ASSERT_STR_EQ("from_env|from_env|first|second|", r);
+    unsetenv("MUX_TEST_ENV_VAR");
+    arena_free(&a);
+    PASS();
+}
+
+TEST test_template_respects_input_len(void) {
+    Arena a = arena_new();
+    const char *settings[] = {"k", "v"};
+    const char *buf = "<%= @settings[\"k\"] %>TRAILING";
+    char *r = template_substitute_ex(&a, buf, 21, settings, 2, NULL, 0);
+    ASSERT_STR_EQ("v", r);
+    arena_free(&a);
+    PASS();
+}
+
 SUITE(template_suite) {
     RUN_TEST(test_template_no_tags);
     RUN_TEST(test_template_basic_substitution);
@@ -117,6 +159,10 @@ SUITE(template_suite) {
     RUN_TEST(test_template_parse_setting);
     RUN_TEST(test_template_parse_setting_with_equals);
     RUN_TEST(test_template_parse_setting_invalid);
+    RUN_TEST(test_template_single_quotes_and_tabs);
+    RUN_TEST(test_template_unset_setting_with_no_cli_args);
+    RUN_TEST(test_template_env_and_args);
+    RUN_TEST(test_template_respects_input_len);
 }
 
 GREATEST_MAIN_DEFS();

@@ -20,12 +20,12 @@ jobs:
         if: runner.os == 'Linux'
         run: |
           sudo apt-get update
-          sudo apt-get install -y meson ninja-build pkg-config libyaml-dev
+          sudo apt-get install -y meson ninja-build pkg-config libyaml-dev tmux
 
       - name: Install dependencies (macOS)
         if: runner.os == 'macOS'
         run: |
-          brew install meson ninja pkg-config libyaml
+          brew install meson ninja pkg-config libyaml tmux
 
       - name: Setup build
         run: meson setup builddir
@@ -33,11 +33,18 @@ jobs:
       - name: Compile
         run: meson compile -C builddir
 
-      - name: Unit tests
+      - name: Unit and integration tests
         run: meson test -C builddir --print-errorlogs
 
       - name: Benchmarks
         run: meson test -C builddir --benchmark --verbose --print-errorlogs
+
+      - name: Sanitizer tests (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          meson setup builddir-san -Db_sanitize=address,undefined
+          meson compile -C builddir-san
+          meson test -C builddir-san --print-errorlogs
 
       - name: Smoke test
         run: |

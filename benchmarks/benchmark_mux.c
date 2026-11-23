@@ -106,6 +106,50 @@ static void benchmark_script_generation(void) {
     print_result("parse and generate script", iterations, now_ns() - start);
 }
 
+static void benchmark_herdr_script_generation(void) {
+    const int iterations = 5000;
+    long long start = now_ns();
+    for (int i = 0; i < iterations; i++) {
+        Arena a = arena_new();
+        Project p;
+        if (config_parse_string(&a, BENCH_CONFIG, strlen(BENCH_CONFIG), &p, NULL, 0) != 0) {
+            fprintf(stderr, "benchmark: config_parse_string failed\n");
+            exit(1);
+        }
+        char *script = script_generate_start_herdr(&p);
+        if (!script) {
+            fprintf(stderr, "benchmark: script_generate_start_herdr failed\n");
+            exit(1);
+        }
+        bench_sink += strlen(script);
+        free(script);
+        arena_free(&a);
+    }
+    print_result("generate herdr script", iterations, now_ns() - start);
+}
+
+static void benchmark_herdr_app_script_generation(void) {
+    const int iterations = 5000;
+    long long start = now_ns();
+    for (int i = 0; i < iterations; i++) {
+        Arena a = arena_new();
+        Project p;
+        if (config_parse_string(&a, BENCH_CONFIG, strlen(BENCH_CONFIG), &p, NULL, 0) != 0) {
+            fprintf(stderr, "benchmark: config_parse_string failed\n");
+            exit(1);
+        }
+        char *script = script_generate_start_herdr_app(&p);
+        if (!script) {
+            fprintf(stderr, "benchmark: script_generate_start_herdr_app failed\n");
+            exit(1);
+        }
+        bench_sink += strlen(script);
+        free(script);
+        arena_free(&a);
+    }
+    print_result("generate herdr-app script", iterations, now_ns() - start);
+}
+
 static void write_project_file(const char *dir, int index) {
     char path[512];
     snprintf(path, sizeof(path), "%s/project_%04d.yml", dir, index);
@@ -212,6 +256,8 @@ int main(void) {
     benchmark_parse_config();
     benchmark_template_config();
     benchmark_script_generation();
+    benchmark_herdr_script_generation();
+    benchmark_herdr_app_script_generation();
     benchmark_project_listing();
     benchmark_active_session_filter();
     printf("benchmark sink: %zu\n", bench_sink);
