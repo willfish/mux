@@ -844,9 +844,12 @@ TEST test_script_relative_root_resolved_against_invocation_cwd(void) {
     ASSERT(getcwd(orig_cwd, sizeof(orig_cwd)) != NULL);
 
     char tmp[] = "/tmp/mux-root-rel-XXXXXX";
-    char *dir = mkdtemp(tmp);
-    ASSERT(dir != NULL);
-    ASSERT_EQ(0, chdir(dir));
+    ASSERT(mkdtemp(tmp) != NULL);
+    ASSERT_EQ(0, chdir(tmp));
+    /* mux resolves against getcwd(), which follows symlinks such as macOS's
+     * /tmp -> /private/tmp, so expect the resolved path. */
+    char dir[1024];
+    ASSERT(getcwd(dir, sizeof(dir)) != NULL);
 
     const char *cfg = "name: app\n"
                       "root: app\n"
@@ -915,9 +918,12 @@ TEST test_script_herdr_backends_resolve_relative_root_absolutely(void) {
     ASSERT(getcwd(orig_cwd, sizeof(orig_cwd)) != NULL);
 
     char tmp[] = "/tmp/mux-herdr-root-XXXXXX";
-    char *dir = mkdtemp(tmp);
-    ASSERT(dir != NULL);
-    ASSERT_EQ(0, chdir(dir));
+    ASSERT(mkdtemp(tmp) != NULL);
+    ASSERT_EQ(0, chdir(tmp));
+    /* mux resolves against getcwd(), which follows symlinks such as macOS's
+     * /tmp -> /private/tmp, so expect the resolved path. */
+    char dir[1024];
+    ASSERT(getcwd(dir, sizeof(dir)) != NULL);
 
     const char *cfg = "name: herdrrel\n"
                       "root: app\n"
@@ -932,7 +938,7 @@ TEST test_script_herdr_backends_resolve_relative_root_absolutely(void) {
     Project p;
     ASSERT_EQ(0, config_parse_string(&a, cfg, strlen(cfg), &p, NULL, 0));
 
-    char abs_root[512], sub_root[512], cd_line[1024];
+    char abs_root[1536], sub_root[1536], cd_line[2048];
     snprintf(abs_root, sizeof(abs_root), "%s/app", dir);
     snprintf(sub_root, sizeof(sub_root), "%s/app/sub", dir);
     snprintf(cd_line, sizeof(cd_line), "cd %s 2>/dev/null || true\n", abs_root);
@@ -1051,7 +1057,17 @@ TEST test_script_herdr_restart_and_detach_and_batched_json(void) {
     PASS();
 }
 
+static char suite_cwd[4096];
+
+static void restore_suite_cwd(void *udata) {
+    (void)udata;
+    if (suite_cwd[0] && chdir(suite_cwd) != 0) {
+        perror("chdir");
+    }
+}
+
 SUITE(script_suite) {
+    GREATEST_SET_TEARDOWN_CB(restore_suite_cwd, NULL);
     RUN_TEST(test_script_start_contains_session);
     RUN_TEST(test_script_start_contains_windows);
     RUN_TEST(test_script_start_contains_attach);
@@ -1106,6 +1122,7 @@ GREATEST_MAIN_DEFS();
 
 int main(int argc, char **argv) {
     GREATEST_MAIN_BEGIN();
+    if (!getcwd(suite_cwd, sizeof(suite_cwd))) suite_cwd[0] = '\0';
     RUN_SUITE(script_suite);
     RUN_SUITE(script_fixture_suite);
     GREATEST_MAIN_END();

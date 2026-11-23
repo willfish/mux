@@ -5,7 +5,8 @@ MUX="${MUX:-./build/mux}"
 PASS=0
 FAIL=0
 
-TMPDIR_BASE=$(mktemp -d)
+# Resolve symlinks (macOS /var -> /private/var) so it matches tmux cwd paths.
+TMPDIR_BASE=$(cd "$(mktemp -d)" && pwd -P)
 SOCK="mux-itest-$$"
 
 cleanup() {
