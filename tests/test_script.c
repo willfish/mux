@@ -891,7 +891,7 @@ TEST test_script_relative_root_resolved_against_invocation_cwd(void) {
 
     arena_free(&a);
     ASSERT_EQ(0, chdir(orig_cwd));
-    rm_rf_tmpdir(dir);
+    rm_rf_tmpdir(tmp);
     PASS();
 }
 
@@ -988,7 +988,7 @@ TEST test_script_herdr_backends_resolve_relative_root_absolutely(void) {
 
     arena_free(&a);
     ASSERT_EQ(0, chdir(orig_cwd));
-    rm_rf_tmpdir(dir);
+    rm_rf_tmpdir(tmp);
     PASS();
 }
 
